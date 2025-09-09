@@ -46,15 +46,5 @@ export interface GetVaultEntriesFilters {
   domain?: string;
 }
 
-export interface EncryptionResult {
-  encrypted: string;
-  iv: string;
-  authTag: string;
-}
-
-export interface DecryptionParams {
-  encrypted: string;
-  iv: string;
-  authTag: string;
-  key: string;
-}
+// Note: encryption helpers now use a concatenated hex format and no longer
+// expose per-field encryption result types.

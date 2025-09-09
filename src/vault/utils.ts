@@ -1,7 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, scrypt } from 'crypto';
-import { promisify } from 'util';
-
-const scryptAsync = promisify(scrypt);
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
 /**
  * AES-256-GCM Encryption utilities for CloudCruise vault data
@@ -12,7 +9,7 @@ const scryptAsync = promisify(scrypt);
  * Encrypts sensitive data using AES-256-GCM
  * @param data - Data to encrypt (will be JSON stringified)
  * @param keyHex - Hex-encoded encryption key
- * @returns Encrypted result with IV and auth tag
+ * @returns Concatenated hex string: iv(24 hex) + ciphertext + tag(32 hex)
  */
 export async function encryptData(data: any, keyHex: string): Promise<string> {
   try {
@@ -33,7 +30,8 @@ export async function encryptData(data: any, keyHex: string): Promise<string> {
 
 /**
  * Decrypts data using AES-256-GCM
- * @param params - Decryption parameters
+ * @param encryptedHex - Concatenated hex: iv(24 hex) + ciphertext + tag(32 hex)
+ * @param keyHex - Hex-encoded encryption key
  * @returns Decrypted and parsed data
  */
 export async function decryptData(encryptedHex: string, keyHex: string): Promise<any> {
@@ -60,7 +58,7 @@ export async function decryptData(encryptedHex: string, keyHex: string): Promise
 
 /**
  * Encrypts sensitive fields in a vault entry
- * Fields that should be encrypted: password, tfa_secret
+ * Fields encrypted: user_name, password, tfa_secret (if present)
  * @param entry - Vault entry with potentially sensitive data
  * @param encryptionKey - Hex-encoded encryption key
  * @returns Entry with encrypted sensitive fields
