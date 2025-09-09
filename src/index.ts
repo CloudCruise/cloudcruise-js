@@ -3,17 +3,26 @@
  * Official client library for the CloudCruise Platform
  */
 
-// Main client export
 export { CloudCruiseClient } from './CloudCruiseClient.js';
 export type { CloudCruiseClientParams } from './CloudCruiseClient.js';
 
-// Vault namespace client export
 export { VaultClient } from './vault/VaultClient.js';
+export { WorkflowsClient } from './workflows/WorkflowsClient.js';
 
-// Vault type exports
 export type {
   VaultEntry,
   GetVaultEntriesFilters,
   ProxyConfig,
   VaultPostPutHeadersInBody
 } from './vault/types.js';
+
+export type {
+  Workflow,
+  WorkflowErrorReport,
+  WorkflowErrorReportTimeframe,
+  WorkflowError,
+  WorkflowErrorGroup,
+  GetWorkflowErrorsFilters,
+  WorkflowInputSchema,
+  WorkflowMetadata
+} from './workflows/types.js';
