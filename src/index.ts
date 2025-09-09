@@ -18,11 +18,6 @@ export type {
 
 export type {
   Workflow,
-  WorkflowErrorReport,
-  WorkflowErrorReportTimeframe,
-  WorkflowError,
-  WorkflowErrorGroup,
-  GetWorkflowErrorsFilters,
   WorkflowInputSchema,
   WorkflowMetadata
 } from './workflows/types.js';
