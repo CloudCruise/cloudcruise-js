@@ -16,12 +16,11 @@ import { CloudCruiseClient } from "cloudcruise";
 // Option A: Provide params explicitly
 const client = new CloudCruiseClient({
   apiKey: "your-api-key",
-  baseUrl: "https://api.cloudcruise.com", // Optional, defaults to https://api.cloudcruise.com
   encryptionKey: "your-hex-encryption-key", // Required
 });
 
 // Option B: Use environment variables
-// CLOUDCRUISE_API_KEY, CLOUDCRUISE_BASE_URL, CLOUDCRUISE_ENCRYPTION_KEY
+// CLOUDCRUISE_API_KEY, CLOUDCRUISE_ENCRYPTION_KEY
 const clientFromEnv = new CloudCruiseClient();
 
 // Create a vault entry using the new namespace syntax
@@ -131,7 +130,6 @@ new CloudCruiseClient(params: CloudCruiseClientParams)
 **Parameters:**
 
 - `apiKey` (string, optional): Your CloudCruise API key. Falls back to `CLOUDCRUISE_API_KEY`.
-- `baseUrl` (string, optional): CloudCruise API base URL. Falls back to `CLOUDCRUISE_BASE_URL`, then defaults to `https://api.cloudcruise.com`.
 - `encryptionKey` (string, optional): Hex-encoded key. Falls back to `CLOUDCRUISE_ENCRYPTION_KEY`. Required to instantiate the client.
 
 If not provided via params, the constructor reads environment variables. Missing required values cause the constructor to throw.
@@ -139,7 +137,6 @@ If not provided via params, the constructor reads environment variables. Missing
 ### Environment Variables
 
 - `CLOUDCRUISE_API_KEY`: API key used for authentication.
-- `CLOUDCRUISE_BASE_URL`: Base URL for the CloudCruise API (optional, defaults to `https://api.cloudcruise.com`).
 - `CLOUDCRUISE_ENCRYPTION_KEY`: 64-character hex-encoded key (32 bytes) used for encryption/decryption.
 
 #### Namespaces
@@ -206,36 +203,6 @@ npm run build
 
 # Watch mode for development
 npm run dev
-```
-
-## Migration Guide
-
-### From v1.x to v2.x (Namespace API)
-
-The SDK has been refactored to use namespaces for better organization. Here's how to migrate your code:
-
-#### Old API (v1.x)
-
-```typescript
-const client = new CloudCruiseClient({...});
-
-// Old method names
-await client.createVaultEntry(domain, userId, options);
-await client.getVaultEntries(filters);
-await client.updateVaultEntry(id, updates);
-await client.deleteVaultEntry(domain, userId);
-```
-
-#### New API (v2.x)
-
-```typescript
-const client = new CloudCruiseClient({...});
-
-// New namespace syntax with shorter method names
-await client.vault.create(domain, userId, options);
-await client.vault.get(filters);
-await client.vault.update(id, updates);
-await client.vault.delete(domain, userId);
 ```
 
 ## Requirements
