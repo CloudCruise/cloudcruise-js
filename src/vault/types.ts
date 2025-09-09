@@ -44,6 +44,7 @@ export interface VaultEntry {
 export interface GetVaultEntriesFilters {
   permissioned_user_id?: string;
   domain?: string;
+  decryptCredentials?: boolean;
 }
 
 // Note: encryption helpers now use a concatenated hex format and no longer

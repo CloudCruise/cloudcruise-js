@@ -116,6 +116,10 @@ export class CloudCruiseClient {
 
   /**
    * Gets vault entries, optionally filtered
+   * @param filters - Optional filters for the request
+   * @param filters.permissioned_user_id - Filter by user ID
+   * @param filters.domain - Filter by domain
+   * @param filters.decryptCredentials - Whether to decrypt sensitive fields (default: true)
    */
   async getVaultEntries(filters?: GetVaultEntriesFilters): Promise<VaultEntry[]> {
     let path = '/vault';
@@ -134,10 +138,13 @@ export class CloudCruiseClient {
     const response = await this.makeRequest<VaultEntry[]>('GET', path);
     let entries = Array.isArray(response) ? response : [response];
     
-    // Decrypt sensitive fields using encryption key
-    entries = await Promise.all(
-      entries.map(entry => decryptSensitiveFields(entry, this.encryptionKey))
-    );
+    // Conditionally decrypt sensitive fields based on decryptCredentials flag
+    const shouldDecrypt = filters?.decryptCredentials !== false;
+    if (shouldDecrypt) {
+      entries = await Promise.all(
+        entries.map(entry => decryptSensitiveFields(entry, this.encryptionKey))
+      );
+    }
     
     return entries;
   }
@@ -164,9 +171,11 @@ export class CloudCruiseClient {
   }
 
   /**
-   * Deletes a vault entry by ID
+   * Deletes a vault entry by domain and permissioned user ID
+   * @param domain - The domain of the vault entry to delete
+   * @param permissioned_user_id - The permissioned user ID of the vault entry to delete
    */
-  async deleteVaultEntry(id: string): Promise<void> {
-    await this.makeRequest('DELETE', '/vault', { id });
+  async deleteVaultEntry(domain: string, permissioned_user_id: string): Promise<void> {
+    await this.makeRequest('DELETE', '/vault', { domain, permissioned_user_id });
   }
 }
