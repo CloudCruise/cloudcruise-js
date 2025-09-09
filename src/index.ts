@@ -7,6 +7,9 @@
 export { CloudCruiseClient } from './CloudCruiseClient.js';
 export type { CloudCruiseClientParams } from './CloudCruiseClient.js';
 
+// Vault namespace client export
+export { VaultClient } from './vault/VaultClient.js';
+
 // Vault type exports
 export type {
   VaultEntry,

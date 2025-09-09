@@ -16,7 +16,7 @@ import { CloudCruiseClient } from "cloudcruise";
 // Option A: Provide params explicitly
 const client = new CloudCruiseClient({
   apiKey: "your-api-key",
-  baseUrl: "https://api.cloudcruise.com",
+  baseUrl: "https://api.cloudcruise.com", // Optional, defaults to https://api.cloudcruise.com
   encryptionKey: "your-hex-encryption-key", // Required
 });
 
@@ -24,9 +24,9 @@ const client = new CloudCruiseClient({
 // CLOUDCRUISE_API_KEY, CLOUDCRUISE_BASE_URL, CLOUDCRUISE_ENCRYPTION_KEY
 const clientFromEnv = new CloudCruiseClient();
 
-// Create a vault entry (the method you requested!)
-await client.createVaultEntry("https://example.com", "user123", {
-  user_name: "john_doe",       // Automatically encrypted
+// Create a vault entry using the new namespace syntax
+await client.vault.create("https://example.com", "user123", {
+  user_name: "john_doe", // Automatically encrypted
   password: "secure_password", // Automatically encrypted
 });
 ```
@@ -40,40 +40,40 @@ import { CloudCruiseClient } from "cloudcruise";
 
 const client = new CloudCruiseClient({
   apiKey: "your-api-key",
-  baseUrl: "https://api.cloudcruise.com",
   encryptionKey: "your-hex-encryption-key", // Required
+  // baseUrl defaults to https://api.cloudcruise.com
 });
 
 // Create a vault entry
-const newEntry = await client.createVaultEntry("https://example.com", "user123", {
-  user_name: "john_doe",             // Automatically encrypted
-  password: "secure_password",       // Automatically encrypted
-  tfa_secret: "JBSWY3DPEHPK3PXP",    // Automatically encrypted
+const newEntry = await client.vault.create("https://example.com", "user123", {
+  user_name: "john_doe", // Automatically encrypted
+  password: "secure_password", // Automatically encrypted
+  tfa_secret: "JBSWY3DPEHPK3PXP", // Automatically encrypted
 });
 
 // Get all vault entries (automatically decrypted)
-const allEntries = await client.getVaultEntries();
+const allEntries = await client.vault.get();
 
 // Get specific vault entries with filters
-const filteredEntries = await client.getVaultEntries({
+const filteredEntries = await client.vault.get({
   permissioned_user_id: "user123",
   domain: "https://example.com",
 });
 
 // Update a vault entry
-const updatedEntry = await client.updateVaultEntry(newEntry.id!, {
+const updatedEntry = await client.vault.update(newEntry.id!, {
   password: "new_secure_password", // Automatically encrypted
 });
 
 // Delete a vault entry
-await client.deleteVaultEntry(newEntry.id);
+await client.vault.delete("https://example.com", "user123");
 ```
 
 ### Advanced Browser Automation Features
 
 ```typescript
 // Create entry with browser automation settings
-await client.createVaultEntry("https://app.example.com", "user123", {
+await client.vault.create("https://app.example.com", "user123", {
   password: "secure_password",
   user_name: "john_doe",
 
@@ -103,16 +103,16 @@ import { CloudCruiseClient } from "cloudcruise";
 // Enable automatic encryption/decryption
 const client = new CloudCruiseClient({
   apiKey: "your-api-key",
-  baseUrl: "https://api.cloudcruise.com",
   encryptionKey: "your-64-char-hex-encryption-key", // 32 bytes as hex, required
+  // baseUrl defaults to https://api.cloudcruise.com
 });
 
 // Sensitive fields (user_name, password, tfa_secret) are automatically
 // encrypted before sending to API and decrypted on responses
-const entry = await client.createVaultEntry("https://secure-site.com", "user123", {
-  user_name: "john_doe",                        // AES-256-GCM encrypted
-  password: "will-be-encrypted-automatically",  // AES-256-GCM encrypted
-  tfa_secret: "JBSWY3DPEHPK3PXP",               // AES-256-GCM encrypted
+const entry = await client.vault.create("https://secure-site.com", "user123", {
+  user_name: "john_doe", // AES-256-GCM encrypted
+  password: "will-be-encrypted-automatically", // AES-256-GCM encrypted
+  tfa_secret: "JBSWY3DPEHPK3PXP", // AES-256-GCM encrypted
 });
 ```
 
@@ -131,7 +131,7 @@ new CloudCruiseClient(params: CloudCruiseClientParams)
 **Parameters:**
 
 - `apiKey` (string, optional): Your CloudCruise API key. Falls back to `CLOUDCRUISE_API_KEY`.
-- `baseUrl` (string, optional): CloudCruise API base URL. Falls back to `CLOUDCRUISE_BASE_URL`.
+- `baseUrl` (string, optional): CloudCruise API base URL. Falls back to `CLOUDCRUISE_BASE_URL`, then defaults to `https://api.cloudcruise.com`.
 - `encryptionKey` (string, optional): Hex-encoded key. Falls back to `CLOUDCRUISE_ENCRYPTION_KEY`. Required to instantiate the client.
 
 If not provided via params, the constructor reads environment variables. Missing required values cause the constructor to throw.
@@ -139,26 +139,30 @@ If not provided via params, the constructor reads environment variables. Missing
 ### Environment Variables
 
 - `CLOUDCRUISE_API_KEY`: API key used for authentication.
-- `CLOUDCRUISE_BASE_URL`: Base URL for the CloudCruise API, e.g., `https://api.cloudcruise.com`.
+- `CLOUDCRUISE_BASE_URL`: Base URL for the CloudCruise API (optional, defaults to `https://api.cloudcruise.com`).
 - `CLOUDCRUISE_ENCRYPTION_KEY`: 64-character hex-encoded key (32 bytes) used for encryption/decryption.
 
-#### Methods
+#### Namespaces
 
-##### `createVaultEntry(domain: string, permissioned_user_id: string, options?: Partial<VaultEntry>): Promise<VaultEntry>`
+### Vault Namespace (`client.vault`)
+
+The vault namespace provides methods for managing vault entries:
+
+##### `client.vault.create(domain: string, permissioned_user_id: string, options?: Partial<VaultEntry>): Promise<VaultEntry>`
 
 Creates a new vault entry with required domain and user ID, plus optional settings.
 
-##### `getVaultEntries(filters?: GetVaultEntriesFilters): Promise<VaultEntry[]>`
+##### `client.vault.get(filters?: GetVaultEntriesFilters): Promise<VaultEntry[]>`
 
 Retrieves vault entries, optionally filtered by user ID and/or domain.
 
-##### `updateVaultEntry(id: string, updates: Partial<VaultEntry>): Promise<VaultEntry>`
+##### `client.vault.update(id: string, updates: Partial<VaultEntry>): Promise<VaultEntry>`
 
 Updates an existing vault entry by ID with the specified changes.
 
-##### `deleteVaultEntry(id: string): Promise<void>`
+##### `client.vault.delete(domain: string, permissioned_user_id: string): Promise<void>`
 
-Deletes a vault entry by ID.
+Deletes a vault entry by domain and permissioned user ID.
 
 ### VaultEntry Interface
 
@@ -202,6 +206,36 @@ npm run build
 
 # Watch mode for development
 npm run dev
+```
+
+## Migration Guide
+
+### From v1.x to v2.x (Namespace API)
+
+The SDK has been refactored to use namespaces for better organization. Here's how to migrate your code:
+
+#### Old API (v1.x)
+
+```typescript
+const client = new CloudCruiseClient({...});
+
+// Old method names
+await client.createVaultEntry(domain, userId, options);
+await client.getVaultEntries(filters);
+await client.updateVaultEntry(id, updates);
+await client.deleteVaultEntry(domain, userId);
+```
+
+#### New API (v2.x)
+
+```typescript
+const client = new CloudCruiseClient({...});
+
+// New namespace syntax with shorter method names
+await client.vault.create(domain, userId, options);
+await client.vault.get(filters);
+await client.vault.update(id, updates);
+await client.vault.delete(domain, userId);
 ```
 
 ## Requirements
