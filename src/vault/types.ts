@@ -46,6 +46,3 @@ export interface GetVaultEntriesFilters {
   domain?: string;
   decryptCredentials?: boolean;
 }
-
-// Note: encryption helpers now use a concatenated hex format and no longer
-// expose per-field encryption result types.
