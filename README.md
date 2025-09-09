@@ -13,17 +13,21 @@ npm install cloudcruise
 ```typescript
 import { CloudCruiseClient } from "cloudcruise";
 
-// Initialize the client
+// Option A: Provide params explicitly
 const client = new CloudCruiseClient({
   apiKey: "your-api-key",
   baseUrl: "https://api.cloudcruise.com",
-  encryptionKey: "optional-hex-encryption-key", // Optional client-side encryption
+  encryptionKey: "your-hex-encryption-key", // Required
 });
+
+// Option B: Use environment variables
+// CLOUDCRUISE_API_KEY, CLOUDCRUISE_BASE_URL, CLOUDCRUISE_ENCRYPTION_KEY
+const clientFromEnv = new CloudCruiseClient();
 
 // Create a vault entry (the method you requested!)
 await client.createVaultEntry("https://example.com", "user123", {
-  password: "secure_password", // Automatically encrypted if encryptionKey provided
-  user_name: "john_doe",
+  user_name: "john_doe",       // Automatically encrypted
+  password: "secure_password", // Automatically encrypted
 });
 ```
 
@@ -37,14 +41,14 @@ import { CloudCruiseClient } from "cloudcruise";
 const client = new CloudCruiseClient({
   apiKey: "your-api-key",
   baseUrl: "https://api.cloudcruise.com",
-  encryptionKey: "your-hex-encryption-key", // Optional - enables automatic encryption
+  encryptionKey: "your-hex-encryption-key", // Required
 });
 
 // Create a vault entry
 const newEntry = await client.createVaultEntry("https://example.com", "user123", {
-  password: "secure_password", // Automatically encrypted
-  user_name: "john_doe",
-  tfa_secret: "JBSWY3DPEHPK3PXP", // Automatically encrypted
+  user_name: "john_doe",             // Automatically encrypted
+  password: "secure_password",       // Automatically encrypted
+  tfa_secret: "JBSWY3DPEHPK3PXP",    // Automatically encrypted
 });
 
 // Get all vault entries (automatically decrypted)
@@ -91,7 +95,7 @@ await client.createVaultEntry("https://app.example.com", "user123", {
 
 ### Encryption Support
 
-The SDK supports optional client-side encryption for sensitive fields (password, tfa_secret):
+Client-side encryption is required for write operations (create/update) and is used to decrypt sensitive fields when reading entries. Sensitive fields include `user_name`, `password`, and `tfa_secret`.
 
 ```typescript
 import { CloudCruiseClient } from "cloudcruise";
@@ -100,14 +104,15 @@ import { CloudCruiseClient } from "cloudcruise";
 const client = new CloudCruiseClient({
   apiKey: "your-api-key",
   baseUrl: "https://api.cloudcruise.com",
-  encryptionKey: "your-64-char-hex-encryption-key", // 32 bytes as hex
+  encryptionKey: "your-64-char-hex-encryption-key", // 32 bytes as hex, required
 });
 
-// Sensitive fields are automatically encrypted before sending to API
-// and decrypted when receiving from API
+// Sensitive fields (user_name, password, tfa_secret) are automatically
+// encrypted before sending to API and decrypted on responses
 const entry = await client.createVaultEntry("https://secure-site.com", "user123", {
-  password: "will-be-encrypted-automatically", // AES-256-GCM encrypted
-  tfa_secret: "JBSWY3DPEHPK3PXP", // AES-256-GCM encrypted
+  user_name: "john_doe",                        // AES-256-GCM encrypted
+  password: "will-be-encrypted-automatically",  // AES-256-GCM encrypted
+  tfa_secret: "JBSWY3DPEHPK3PXP",               // AES-256-GCM encrypted
 });
 ```
 
@@ -125,9 +130,17 @@ new CloudCruiseClient(params: CloudCruiseClientParams)
 
 **Parameters:**
 
-- `apiKey` (string): Your CloudCruise API key
-- `baseUrl` (string): CloudCruise API base URL
-- `encryptionKey` (string, optional): Hex-encoded key for client-side encryption
+- `apiKey` (string, optional): Your CloudCruise API key. Falls back to `CLOUDCRUISE_API_KEY`.
+- `baseUrl` (string, optional): CloudCruise API base URL. Falls back to `CLOUDCRUISE_BASE_URL`.
+- `encryptionKey` (string, optional): Hex-encoded key. Falls back to `CLOUDCRUISE_ENCRYPTION_KEY`. Required to instantiate the client.
+
+If not provided via params, the constructor reads environment variables. Missing required values cause the constructor to throw.
+
+### Environment Variables
+
+- `CLOUDCRUISE_API_KEY`: API key used for authentication.
+- `CLOUDCRUISE_BASE_URL`: Base URL for the CloudCruise API, e.g., `https://api.cloudcruise.com`.
+- `CLOUDCRUISE_ENCRYPTION_KEY`: 64-character hex-encoded key (32 bytes) used for encryption/decryption.
 
 #### Methods
 

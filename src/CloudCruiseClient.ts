@@ -3,22 +3,37 @@ import type {
   VaultEntry
 } from './vault/types.js';
 import { encryptSensitiveFields, decryptSensitiveFields } from './vault/utils.js';
+import { getEnv } from './utils/env.js';
 
 export interface CloudCruiseClientParams {
-  apiKey: string;
-  baseUrl: string;
+  apiKey?: string;
+  baseUrl?: string;
   encryptionKey?: string;
 }
 
 export class CloudCruiseClient {
   private readonly apiKey: string;
   private readonly baseUrl: string;
-  private readonly encryptionKey?: string;
+  private readonly encryptionKey: string;
 
-  constructor(params: CloudCruiseClientParams) {
-    this.apiKey = params.apiKey;
-    this.baseUrl = params.baseUrl.replace(/\/$/, ''); // Remove trailing slash
-    this.encryptionKey = params.encryptionKey;
+  constructor(params?: CloudCruiseClientParams) {
+    const apiKey = params?.apiKey ?? getEnv('CLOUDCRUISE_API_KEY');
+    const baseUrl = params?.baseUrl ?? getEnv('CLOUDCRUISE_BASE_URL');
+    const encryptionKey = params?.encryptionKey ?? getEnv('CLOUDCRUISE_ENCRYPTION_KEY');
+
+    if (!apiKey) {
+      throw new Error('Missing apiKey. Provide via params.apiKey or CLOUDCRUISE_API_KEY env var.');
+    }
+    if (!baseUrl) {
+      throw new Error('Missing baseUrl. Provide via params.baseUrl or CLOUDCRUISE_BASE_URL env var.');
+    }
+    if (!encryptionKey) {
+      throw new Error('Missing encryptionKey. Provide via params.encryptionKey or CLOUDCRUISE_ENCRYPTION_KEY env var.');
+    }
+
+    this.apiKey = apiKey;
+    this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
+    this.encryptionKey = encryptionKey;
   }
 
   /**
@@ -81,6 +96,7 @@ export class CloudCruiseClient {
     permissioned_user_id: string, 
     options?: Partial<Omit<VaultEntry, 'id' | 'created_at' | 'domain' | 'permissioned_user_id'>>
   ): Promise<VaultEntry> {
+    // Encryption key is guaranteed by constructor
     const entry = {
       domain,
       permissioned_user_id,
@@ -89,19 +105,13 @@ export class CloudCruiseClient {
     
     let processedEntry = { ...entry };
     
-    // Encrypt sensitive fields if encryption key is provided
-    if (this.encryptionKey) {
-      processedEntry = await encryptSensitiveFields(processedEntry, this.encryptionKey);
-    }
+    // Encrypt sensitive fields
+    processedEntry = await encryptSensitiveFields(processedEntry, this.encryptionKey);
 
     const response = await this.makeRequest<VaultEntry>('POST', '/vault', processedEntry);
     
-    // Decrypt response if encryption was used
-    if (this.encryptionKey) {
-      return await decryptSensitiveFields(response, this.encryptionKey);
-    }
-    
-    return response;
+    // Decrypt response using encryption key
+    return await decryptSensitiveFields(response, this.encryptionKey);
   }
 
   /**
@@ -124,12 +134,10 @@ export class CloudCruiseClient {
     const response = await this.makeRequest<VaultEntry[]>('GET', path);
     let entries = Array.isArray(response) ? response : [response];
     
-    // Decrypt sensitive fields if encryption key is provided
-    if (this.encryptionKey) {
-      entries = await Promise.all(
-        entries.map(entry => decryptSensitiveFields(entry, this.encryptionKey!))
-      );
-    }
+    // Decrypt sensitive fields using encryption key
+    entries = await Promise.all(
+      entries.map(entry => decryptSensitiveFields(entry, this.encryptionKey))
+    );
     
     return entries;
   }
@@ -138,6 +146,7 @@ export class CloudCruiseClient {
    * Updates an existing vault entry
    */
   async updateVaultEntry(id: string, updates: Partial<VaultEntry>): Promise<VaultEntry> {
+    // Encryption key is guaranteed by constructor
     const entry = {
       id,
       ...updates
@@ -145,19 +154,13 @@ export class CloudCruiseClient {
     
     let processedEntry = { ...entry };
     
-    // Encrypt sensitive fields if encryption key is provided
-    if (this.encryptionKey) {
-      processedEntry = await encryptSensitiveFields(processedEntry, this.encryptionKey);
-    }
+    // Encrypt sensitive fields
+    processedEntry = await encryptSensitiveFields(processedEntry, this.encryptionKey);
 
     const response = await this.makeRequest<VaultEntry>('PUT', '/vault', processedEntry);
     
-    // Decrypt response if encryption was used
-    if (this.encryptionKey) {
-      return await decryptSensitiveFields(response, this.encryptionKey);
-    }
-    
-    return response;
+    // Decrypt response using encryption key
+    return await decryptSensitiveFields(response, this.encryptionKey);
   }
 
   /**
