@@ -21,9 +21,7 @@ const client = new CloudCruiseClient({
 });
 
 // Create a vault entry (the method you requested!)
-await client.createVaultEntry({
-  domain: "https://example.com",
-  permissioned_user_id: "user123",
+await client.createVaultEntry("https://example.com", "user123", {
   password: "secure_password", // Automatically encrypted if encryptionKey provided
   user_name: "john_doe",
 });
@@ -43,9 +41,7 @@ const client = new CloudCruiseClient({
 });
 
 // Create a vault entry
-const newEntry = await client.createVaultEntry({
-  domain: "https://example.com",
-  permissioned_user_id: "user123",
+const newEntry = await client.createVaultEntry("https://example.com", "user123", {
   password: "secure_password", // Automatically encrypted
   user_name: "john_doe",
   tfa_secret: "JBSWY3DPEHPK3PXP", // Automatically encrypted
@@ -61,10 +57,7 @@ const filteredEntries = await client.getVaultEntries({
 });
 
 // Update a vault entry
-const updatedEntry = await client.updateVaultEntry({
-  id: newEntry.id,
-  domain: "https://example.com",
-  permissioned_user_id: "user123",
+const updatedEntry = await client.updateVaultEntry(newEntry.id!, {
   password: "new_secure_password", // Automatically encrypted
 });
 
@@ -76,9 +69,7 @@ await client.deleteVaultEntry(newEntry.id);
 
 ```typescript
 // Create entry with browser automation settings
-await client.createVaultEntry({
-  domain: "https://app.example.com",
-  permissioned_user_id: "user123",
+await client.createVaultEntry("https://app.example.com", "user123", {
   password: "secure_password",
   user_name: "john_doe",
 
@@ -114,9 +105,7 @@ const client = new CloudCruiseClient({
 
 // Sensitive fields are automatically encrypted before sending to API
 // and decrypted when receiving from API
-const entry = await client.createVaultEntry({
-  domain: "https://secure-site.com",
-  permissioned_user_id: "user123",
+const entry = await client.createVaultEntry("https://secure-site.com", "user123", {
   password: "will-be-encrypted-automatically", // AES-256-GCM encrypted
   tfa_secret: "JBSWY3DPEHPK3PXP", // AES-256-GCM encrypted
 });
@@ -142,17 +131,17 @@ new CloudCruiseClient(params: CloudCruiseClientParams)
 
 #### Methods
 
-##### `createVaultEntry(entry: CreateVaultEntryRequest): Promise<VaultEntry>`
+##### `createVaultEntry(domain: string, permissioned_user_id: string, options?: Partial<VaultEntry>): Promise<VaultEntry>`
 
-Creates a new vault entry.
+Creates a new vault entry with required domain and user ID, plus optional settings.
 
 ##### `getVaultEntries(filters?: GetVaultEntriesFilters): Promise<VaultEntry[]>`
 
 Retrieves vault entries, optionally filtered by user ID and/or domain.
 
-##### `updateVaultEntry(entry: UpdateVaultEntryRequest): Promise<VaultEntry>`
+##### `updateVaultEntry(id: string, updates: Partial<VaultEntry>): Promise<VaultEntry>`
 
-Updates an existing vault entry.
+Updates an existing vault entry by ID with the specified changes.
 
 ##### `deleteVaultEntry(id: string): Promise<void>`
 

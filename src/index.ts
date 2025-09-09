@@ -10,8 +10,6 @@ export type { CloudCruiseClientParams } from './CloudCruiseClient.js';
 // Vault type exports
 export type {
   VaultEntry,
-  CreateVaultEntryRequest,
-  UpdateVaultEntryRequest,
   GetVaultEntriesFilters,
   ProxyConfig,
   VaultPostPutHeadersInBody

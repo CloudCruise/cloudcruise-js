@@ -1,6 +1,4 @@
 import type {
-  CreateVaultEntryRequest,
-  UpdateVaultEntryRequest,
   GetVaultEntriesFilters,
   VaultEntry
 } from './vault/types.js';
@@ -78,7 +76,17 @@ export class CloudCruiseClient {
   /**
    * Creates a new vault entry
    */
-  async createVaultEntry(entry: CreateVaultEntryRequest): Promise<VaultEntry> {
+  async createVaultEntry(
+    domain: string, 
+    permissioned_user_id: string, 
+    options?: Partial<Omit<VaultEntry, 'id' | 'created_at' | 'domain' | 'permissioned_user_id'>>
+  ): Promise<VaultEntry> {
+    const entry = {
+      domain,
+      permissioned_user_id,
+      ...options
+    };
+    
     let processedEntry = { ...entry };
     
     // Encrypt sensitive fields if encryption key is provided
@@ -129,7 +137,12 @@ export class CloudCruiseClient {
   /**
    * Updates an existing vault entry
    */
-  async updateVaultEntry(entry: UpdateVaultEntryRequest): Promise<VaultEntry> {
+  async updateVaultEntry(id: string, updates: Partial<VaultEntry>): Promise<VaultEntry> {
+    const entry = {
+      id,
+      ...updates
+    };
+    
     let processedEntry = { ...entry };
     
     // Encrypt sensitive fields if encryption key is provided
