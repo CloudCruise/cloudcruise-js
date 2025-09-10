@@ -9,6 +9,7 @@ export type { CloudCruiseClientParams } from './CloudCruiseClient.js';
 export { VaultClient } from './vault/VaultClient.js';
 export { WorkflowsClient } from './workflows/WorkflowsClient.js';
 export { RunsClient } from './runs/RunsClient.js';
+export { WebhookClient } from './webhook/WebhookClient.js';
 
 export type {
   VaultEntry,
@@ -40,3 +41,10 @@ export type {
   WebhookEvent,
   WebhookReplayResponse
 } from './runs/types.js';
+
+export type {
+  WebhookPayload,
+  WebhookVerificationOptions
+} from './webhook/types.js';
+
+export { VerificationError } from './webhook/types.js';
