@@ -109,3 +109,52 @@ export interface WebhookReplayResponse {
   nr_failed: number;
   webhook_events: WebhookEvent[];
 }
+
+/**
+ * Streaming (SSE) types
+ */
+export type SseEventName = 'run.event' | 'ping';
+
+export interface RunEventEnvelope {
+  event: 'run.event';
+  data: {
+    event: EventType | string;
+    payload: Record<string, any>;
+    expires_at: number;
+    timestamp: number;
+  };
+  timestamp?: string;
+  expires_at?: string;
+}
+
+export interface PingEnvelope {
+  event: 'ping';
+  data: { ts: number } | Record<string, any>;
+}
+
+export type SseMessage = RunEventEnvelope | PingEnvelope;
+
+export interface RunStreamOptions {
+  signal?: AbortSignal;
+  withCredentials?: boolean;
+  headers?: Record<string, string>;
+  reconnect?: {
+    enabled?: boolean;
+    delays?: number[];
+    jitter?: number; // 0..1
+  };
+}
+
+export interface RunHandle {
+  sessionId: string;
+  on(
+    event: 'open' | 'reconnect' | 'error' | 'end' | SseEventName | 'message',
+    handler: (e: any) => void
+  ): () => void;
+  wait(): Promise<RunResult>;
+  submit(data: UserInteractionData): Promise<void>;
+  interrupt(): Promise<void>;
+  replayWebhooks(): Promise<WebhookReplayResponse>;
+  close(): void;
+  [Symbol.asyncIterator](): AsyncIterator<SseMessage>;
+}

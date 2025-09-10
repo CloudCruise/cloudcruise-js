@@ -39,7 +39,12 @@ export type {
   RunError,
   RunResult,
   WebhookEvent,
-  WebhookReplayResponse
+  WebhookReplayResponse,
+  RunHandle,
+  RunStreamOptions,
+  SseEventName,
+  SseMessage,
+  RunEventEnvelope
 } from './runs/types.js';
 
 export type {

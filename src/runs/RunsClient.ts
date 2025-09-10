@@ -3,8 +3,12 @@ import type {
   StartRunResponse,
   UserInteractionData,
   RunResult,
-  WebhookReplayResponse
+  WebhookReplayResponse,
+  RunHandle,
+  RunStreamOptions,
+  SseMessage
 } from './types.js';
+import { openSSE } from '../utils/sse.js';
 
 export class RunsClient {
   private readonly makeRequest: <T = any>(
@@ -12,15 +16,21 @@ export class RunsClient {
     path: string,
     body?: any
   ) => Promise<T>;
+  private readonly baseUrl: string;
+  private readonly apiKey: string;
 
   constructor(
     makeRequest: <T = any>(
       method: 'GET' | 'POST' | 'PUT' | 'DELETE',
       path: string,
       body?: any
-    ) => Promise<T>
+    ) => Promise<T>,
+    baseUrl: string,
+    apiKey: string
   ) {
     this.makeRequest = makeRequest;
+    this.baseUrl = baseUrl.replace(/\/$/, '');
+    this.apiKey = apiKey;
   }
 
   /**
@@ -30,6 +40,199 @@ export class RunsClient {
    */
   async start(request: StartRunRequest): Promise<StartRunResponse> {
     return await this.makeRequest<StartRunResponse>('POST', '/run', request);
+  }
+
+  /**
+   * Start and immediately stream events. Returns a handle with sessionId, on(), wait(), and controls.
+   */
+  async startStream(request: StartRunRequest, options?: RunStreamOptions): Promise<RunHandle> {
+    const { session_id } = await this.start(request);
+    return this.subscribeToSession(session_id, options);
+  }
+
+  /**
+   * Subscribes to SSE events for a given session. Returns a handle with helpers.
+   */
+  subscribeToSession(sessionId: string, options?: RunStreamOptions): RunHandle {
+    const url = `${this.baseUrl}/run/${sessionId}/events`;
+    const listeners = new Map<string, Set<(e: any) => void>>();
+    const queue: SseMessage[] = [];
+    let resolveNext: ((v: any) => void) | null = null;
+
+    const emit = (type: string, e?: any) => {
+      listeners.get(type)?.forEach(fn => fn(e));
+      listeners.get('message')?.forEach(fn => fn(e));
+    };
+
+    let ended = false;
+    let closed = false;
+    let conn: { close: () => void } | null = null;
+
+    const reconnectCfg = {
+      enabled: options?.reconnect?.enabled ?? true,
+      delays: options?.reconnect?.delays ?? [1000, 3000, 10000],
+      jitter: options?.reconnect?.jitter ?? 0.2
+    };
+
+    const connect = () => {
+      const headers: Record<string, string> = {
+        'cc-key': this.apiKey,
+        ...(options?.headers ?? {})
+      };
+
+      conn = openSSE(
+        url,
+        {
+          onOpen: () => emit('open'),
+          onEvent: (evt) => {
+            if (evt.event === 'ping') {
+              emit('ping', evt);
+              return;
+            }
+            if (evt.event === 'run.event') {
+              const msg = evt as unknown as { data?: any };
+              const data = msg?.data;
+              const sseMsg: SseMessage = { event: 'run.event', data } as SseMessage;
+              const fnPending = resolveNext;
+              if (fnPending) {
+                resolveNext = null;
+                (fnPending as (arg: any) => void)({ value: sseMsg, done: false });
+              } else {
+                queue.push(sseMsg);
+              }
+              emit('run.event', sseMsg);
+
+              const eventType = data?.data?.event;
+              if (eventType === 'execution.success' || eventType === 'execution.failed' || eventType === 'execution.stopped') {
+                ended = true;
+                closed = true;
+                try { conn?.close(); } catch {}
+                emit('end', { type: eventType });
+                // complete iterator
+                const fnDone = resolveNext;
+                if (fnDone) {
+                  resolveNext = null;
+                  (fnDone as (arg: any) => void)({ value: undefined, done: true });
+                }
+                // clear listeners to avoid leaks
+                listeners.clear();
+              }
+              return;
+            }
+          },
+          onError: (err) => {
+            emit('error', err);
+            if (!reconnectCfg.enabled || ended || closed) return;
+
+            (async () => {
+              for (const base of reconnectCfg.delays) {
+                if (ended || closed) return;
+                const jitter = base * reconnectCfg.jitter * (Math.random() * 2 - 1);
+                const delay = Math.max(0, base + jitter);
+                await new Promise(r => setTimeout(r, delay));
+                if (ended || closed) return;
+
+                try {
+                  const snapshot = await this.getResults(sessionId);
+                  const status = snapshot?.status;
+                  if (status === 'execution.success' || status === 'execution.failed' || status === 'execution.stopped') {
+                    ended = true;
+                    emit('end', { type: status });
+                    return;
+                  }
+                } catch {}
+
+                emit('reconnect', { attemptDelayMs: base });
+                conn?.close();
+                if (closed) return;
+                connect();
+                return;
+              }
+            })();
+          },
+          onClose: () => {
+            // if ended or closed, iterator should complete; otherwise, reconnect logic handles elsewhere
+          }
+        },
+        {
+          headers,
+          withCredentials: options?.withCredentials,
+          signal: options?.signal
+        }
+      );
+    };
+
+    connect();
+
+    const client = this;
+    const handle: RunHandle = {
+      sessionId,
+      on: (event, handler) => {
+        if (!listeners.has(event)) listeners.set(event, new Set());
+        listeners.get(event)!.add(handler);
+        return () => listeners.get(event)!.delete(handler);
+      },
+      async wait(): Promise<RunResult> {
+        if (ended) {
+          return await client.getResults(sessionId);
+        }
+        return await new Promise<RunResult>((resolve, reject) => {
+          const offEnd = handle.on('end', async () => {
+            offErr();
+            try {
+              const result = await client.getResults(sessionId);
+              resolve(result);
+            } catch (e) {
+              reject(e);
+            }
+          });
+          const offErr = handle.on('error', (e) => {
+            offEnd();
+            reject(e instanceof Error ? e : new Error('SSE error'));
+          });
+        });
+      },
+      async submit(data: UserInteractionData) {
+        await client.submitUserInteraction(sessionId, data);
+      },
+      async interrupt() {
+        await client.interrupt(sessionId);
+      },
+      async replayWebhooks() {
+        return await client.replayWebhooks(sessionId);
+      },
+      close() {
+        closed = true;
+        conn?.close();
+        // complete iterator and clear listeners
+        if (resolveNext) {
+          resolveNext({ value: undefined as any, done: true });
+          resolveNext = null;
+        }
+        listeners.clear();
+      },
+      async *[Symbol.asyncIterator](): AsyncIterator<SseMessage> {
+        try {
+          while (true) {
+            if (queue.length) {
+              yield queue.shift()!;
+              continue;
+            }
+            const next = await new Promise<any>(r => (resolveNext = r));
+            if (next && next.done) {
+              return;
+            }
+            if (next) yield next.value;
+          }
+        } finally {
+          // iterator closed by consumer; no action
+        }
+      }
+    };
+
+    // methods already close over client
+
+    return handle;
   }
 
   /**
