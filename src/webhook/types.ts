@@ -1,3 +1,5 @@
+import { EventType } from "../runs/types";
+
 export class VerificationError extends Error {
   public readonly statusCode: number;
 
@@ -8,7 +10,11 @@ export class VerificationError extends Error {
   }
 }
 
+/* 
+TODO: type webhook payloads.
+*/
 export interface WebhookPayload {
+  event: EventType;
   expires_at: number;
   [key: string]: any;
 }
