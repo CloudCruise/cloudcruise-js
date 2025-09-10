@@ -1,6 +1,5 @@
 import type {
   StartRunRequest,
-  StartRunResponse,
   UserInteractionData,
   RunResult,
   WebhookReplayResponse,
@@ -34,19 +33,11 @@ export class RunsClient {
   }
 
   /**
-   * Initiates a new browser agent run
-   * @param request - Configuration for starting the workflow execution
-   * @returns Promise resolving to session ID
+   * Queues a new run and returns a RunHandle.
+   * The handle exposes sessionId immediately and subscribes to SSE under the hood.
    */
-  async start(request: StartRunRequest): Promise<StartRunResponse> {
-    return await this.makeRequest<StartRunResponse>('POST', '/run', request);
-  }
-
-  /**
-   * Start and immediately stream events. Returns a handle with sessionId, on(), wait(), and controls.
-   */
-  async startStream(request: StartRunRequest, options?: RunStreamOptions): Promise<RunHandle> {
-    const { session_id } = await this.start(request);
+  async start(request: StartRunRequest, options?: RunStreamOptions): Promise<RunHandle> {
+    const { session_id } = await this.makeRequest<{ session_id: string }>('POST', '/run', request);
     return this.subscribeToSession(session_id, options);
   }
 
