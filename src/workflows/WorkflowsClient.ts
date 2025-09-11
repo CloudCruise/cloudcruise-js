@@ -1,7 +1,8 @@
 import type {
   Workflow,
   WorkflowMetadata,
-  WorkflowInputSchema
+  WorkflowInputSchema,
+  WorkflowPropertySchema
 } from './types.js';
 import { InputValidationError } from './types.js';
 
@@ -55,7 +56,7 @@ export class WorkflowsClient {
     const missingRequired = required.filter((key) => payload[key] === undefined);
 
     // Keep track of invalid types, if any, for a useful error message.
-    type TypeDetail = { field: string; expected: string[]; actual: string };
+    type TypeDetail = { field: string; expected_display: string; actual: string };
     const invalidTypes: TypeDetail[] = [];
 
     const detectType = (v: unknown): string => {
@@ -65,9 +66,16 @@ export class WorkflowsClient {
       return typeof v;
     };
 
-    const expectedTypesOf = (def: { type: string[] } | undefined): string[] => {
-      if (!def || !Array.isArray(def.type)) return [];
-      return def.type.map((t) => String(t).toLowerCase());
+    const allowedTypes = new Set(['array', 'boolean', 'integer', 'number', 'object', 'string', 'null']);
+    const expectedTypesOf = (def: WorkflowPropertySchema | undefined): string[] => {
+      if (!def) return [];
+      // Normalize to array-of-strings from either string | string[] | { type: string | string[] }
+      const raw = (typeof def === 'object' && !Array.isArray(def)) ? (def as any).type : (def as any);
+      if (!raw) return [];
+      const arr = Array.isArray(raw) ? raw : [raw];
+      return arr
+        .map((t) => String(t).toLowerCase())
+        .filter((t) => allowedTypes.has(t));
     };
 
     const matches = (expected: string[], actual: string): boolean => {
@@ -85,7 +93,8 @@ export class WorkflowsClient {
       const expected = expectedTypesOf(schemaDef);
       const actual = detectType(payload[key]);
       if (!matches(expected, actual)) {
-        invalidTypes.push({ field: key, expected: expected.length ? expected : ['any'], actual });
+        const exp = expected.length ? expected : ['any'];
+        invalidTypes.push({ field: key, expected_display: exp.join(' | '), actual });
       }
     }
 
@@ -95,7 +104,7 @@ export class WorkflowsClient {
       if (invalidTypes.length) {
         parts.push(
           invalidTypes
-            .map((e) => `${e.field}: expected ${e.expected.join(' | ')}, got ${e.actual}`)
+            .map((e) => `${e.field}: expected ${e.expected_display}, got ${e.actual}`)
             .join('; ')
         );
       }

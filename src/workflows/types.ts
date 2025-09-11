@@ -18,9 +18,15 @@ export interface Workflow {
 }
 
 
-export type WorkflowPropertySchema = {
-  type:  string[];
-};
+export type WorkflowPropertySchema =
+  | string
+  | string[]
+  | {
+      // Accept both a single string and string[] for compatibility
+      type?: string | string[];
+      // Allow additional JSON Schema keywords without strict typing
+      [key: string]: unknown;
+    };
 
 export interface WorkflowInputSchema {
   type?: 'object';
@@ -34,7 +40,7 @@ export interface WorkflowMetadata {
 
 export interface InvalidTypeDetail {
   field: string;
-  expected: string[];
+  expected_display: string; // human-friendly joined string of expected types
   actual: string;
 }
 
