@@ -51,6 +51,7 @@ export class WorkflowsClient {
     const schema: WorkflowInputSchema = input_schema ?? {};
     const properties = schema.properties ?? {};
     const required = schema.required ?? [];
+    const disallowExtras = schema.additionalProperties === false;
 
     // Check only required keys for presence and type
     const missingRequired = required.filter((key) => payload[key] === undefined);
@@ -98,7 +99,12 @@ export class WorkflowsClient {
       }
     }
 
-    if (missingRequired.length || invalidTypes.length) {
+    // If additionalProperties is false, collect unknown keys present in payload
+    const unknownKeys: string[] = disallowExtras
+      ? Object.keys(payload).filter((k) => !(k in properties))
+      : [];
+
+    if (missingRequired.length || invalidTypes.length || unknownKeys.length) {
       const parts: string[] = [];
       if (missingRequired.length) parts.push(`missing required: ${missingRequired.join(', ')}`);
       if (invalidTypes.length) {
@@ -108,8 +114,9 @@ export class WorkflowsClient {
             .join('; ')
         );
       }
+      if (unknownKeys.length) parts.push(`unknown keys: ${unknownKeys.join(', ')}`);
       const message = `Workflow input validation failed: ${parts.join(' | ')}`;
-      throw new InputValidationError(message, missingRequired, invalidTypes);
+      throw new InputValidationError(message, missingRequired, invalidTypes, unknownKeys);
     }
   }
 }

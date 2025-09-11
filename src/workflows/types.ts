@@ -32,6 +32,7 @@ export interface WorkflowInputSchema {
   type?: 'object';
   properties?: Record<string, WorkflowPropertySchema>;
   required?: string[];
+  additionalProperties?: boolean;
 }
 
 export interface WorkflowMetadata {
@@ -47,15 +48,18 @@ export interface InvalidTypeDetail {
 export class InputValidationError extends Error {
   public readonly missingRequired: string[];
   public readonly invalidTypes: InvalidTypeDetail[];
+  public readonly unknownKeys: string[];
 
   constructor(
     message: string = 'Input validation failed',
     missingRequired: string[] = [],
-    invalidTypes: InvalidTypeDetail[] = []
+    invalidTypes: InvalidTypeDetail[] = [],
+    unknownKeys: string[] = []
   ) {
     super(message);
     this.name = 'InputValidationError';
     this.missingRequired = missingRequired;
     this.invalidTypes = invalidTypes;
+    this.unknownKeys = unknownKeys;
   }
 }
