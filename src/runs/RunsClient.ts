@@ -17,6 +17,9 @@ export class RunsClient {
   ) => Promise<T>;
   private readonly baseUrl: string;
   private readonly apiKey: string;
+  private readonly workflows?: {
+    validateWorkflowInput: (workflowId: string, payload: Record<string, any>) => Promise<void>;
+  };
 
   constructor(
     makeRequest: <T = any>(
@@ -25,11 +28,15 @@ export class RunsClient {
       body?: any
     ) => Promise<T>,
     baseUrl: string,
-    apiKey: string
+    apiKey: string,
+    workflows?: {
+      validateWorkflowInput: (workflowId: string, payload: Record<string, any>) => Promise<void>;
+    }
   ) {
     this.makeRequest = makeRequest;
     this.baseUrl = baseUrl.replace(/\/$/, '');
     this.apiKey = apiKey;
+    this.workflows = workflows;
   }
 
   /**
@@ -37,6 +44,10 @@ export class RunsClient {
    * The handle exposes sessionId immediately and subscribes to SSE under the hood.
    */
   async start(request: StartRunRequest, options?: RunStreamOptions): Promise<RunHandle> {
+    // Validate input against workflow schema when workflows client is available
+    if (this.workflows) {
+      await this.workflows.validateWorkflowInput(request.workflow_id, request.run_input_variables);
+    }
     const { session_id } = await this.makeRequest<{ session_id: string }>('POST', '/run', request);
     return this.subscribeToSession(session_id, options);
   }
