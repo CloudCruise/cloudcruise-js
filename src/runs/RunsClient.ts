@@ -5,9 +5,12 @@ import type {
   WebhookReplayResponse,
   RunHandle,
   RunStreamOptions,
-  SseMessage
+  SseMessage,
+  EventType
 } from './types.js';
 import { openSSE } from '../utils/sse.js';
+import { AsyncEventQueue } from '../utils/asyncQueue.js';
+import { SimpleEventEmitter } from '../utils/events.js';
 
 export class RunsClient {
   private readonly makeRequest: <T = any>(
@@ -59,14 +62,8 @@ export class RunsClient {
    */
   subscribeToSession(sessionId: string, options?: RunStreamOptions): RunHandle {
     const url = `${this.baseUrl}/run/${sessionId}/events`;
-    const listeners = new Map<string, Set<(e: any) => void>>();
-    const queue: SseMessage[] = [];
-    let resolveNext: ((v: any) => void) | null = null;
-
-    const emit = (type: string, e?: any) => {
-      listeners.get(type)?.forEach(fn => fn(e));
-      listeners.get('message')?.forEach(fn => fn(e));
-    };
+    const emitter = new SimpleEventEmitter();
+    const stream = new AsyncEventQueue<SseMessage>();
 
     let ended = false;
     let closed = false;
@@ -75,53 +72,63 @@ export class RunsClient {
     const reconnectCfg = {
       enabled: options?.reconnect?.enabled ?? true,
       delays: options?.reconnect?.delays ?? [1000, 3000, 10000],
-      jitter: options?.reconnect?.jitter ?? 0.2
+    };
+
+    const isTerminalEvent = (status?: string | null): status is EventType =>
+      status === 'execution.success' || status === 'execution.failed' || status === 'execution.stopped';
+
+    const emit = (event: string, payload?: unknown) => {
+      emitter.emit(event, payload);
+      // Mirror only SSE messages to 'message' for catch-all consumers
+      if (event === 'run.event' || event === 'ping') {
+        emitter.emit('message', payload);
+      }
+    };
+
+    const endAndCleanup = (status: EventType) => {
+      if (ended) return;
+      ended = true;
+      closed = true;
+      try { conn?.close(); } catch {}
+      emit('end', { type: status });
+      stream.close();
+      emitter.clear();
     };
 
     const connect = () => {
       const headers: Record<string, string> = {
         'cc-key': this.apiKey,
-        ...(options?.headers ?? {})
+        ...(options?.headers ?? {}),
       };
 
       conn = openSSE(
         url,
         {
-          onOpen: () => emit('open'),
+          onOpen: () => emit('open', undefined),
           onEvent: (evt) => {
             if (evt.event === 'ping') {
-              emit('ping', evt);
+              const pingMsg: SseMessage = { event: 'ping', data: (evt.data ?? {}) as Record<string, unknown> } as SseMessage;
+              emit('ping', pingMsg);
               return;
             }
             if (evt.event === 'run.event') {
-              const msg = evt as unknown as { data?: any };
-              const data = msg?.data;
+              const data = evt.data as unknown;
               const sseMsg: SseMessage = { event: 'run.event', data } as SseMessage;
-              const fnPending = resolveNext;
-              if (fnPending) {
-                resolveNext = null;
-                (fnPending as (arg: any) => void)({ value: sseMsg, done: false });
-              } else {
-                queue.push(sseMsg);
-              }
+              stream.push(sseMsg);
               emit('run.event', sseMsg);
 
-              const eventType = data?.data?.event;
-              if (eventType === 'execution.success' || eventType === 'execution.failed' || eventType === 'execution.stopped') {
-                ended = true;
-                closed = true;
-                try { conn?.close(); } catch {}
-                emit('end', { type: eventType });
-                // complete iterator
-                const fnDone = resolveNext;
-                if (fnDone) {
-                  resolveNext = null;
-                  (fnDone as (arg: any) => void)({ value: undefined, done: true });
+              let eventType: string | undefined;
+              if (data && typeof data === 'object') {
+                const outer = data as Record<string, unknown>;
+                const inner = outer['data'];
+                if (inner && typeof inner === 'object' && 'event' in (inner as Record<string, unknown>)) {
+                  const evtVal = (inner as Record<string, unknown>)['event'];
+                  if (typeof evtVal === 'string') eventType = evtVal;
                 }
-                // clear listeners to avoid leaks
-                listeners.clear();
               }
-              return;
+              if (isTerminalEvent(eventType)) {
+                endAndCleanup(eventType);
+              }
             }
           },
           onError: (err) => {
@@ -131,17 +138,14 @@ export class RunsClient {
             (async () => {
               for (const base of reconnectCfg.delays) {
                 if (ended || closed) return;
-                const jitter = base * reconnectCfg.jitter * (Math.random() * 2 - 1);
-                const delay = Math.max(0, base + jitter);
-                await new Promise(r => setTimeout(r, delay));
+                await new Promise(r => setTimeout(r, base));
                 if (ended || closed) return;
 
                 try {
                   const snapshot = await this.getResults(sessionId);
                   const status = snapshot?.status;
-                  if (status === 'execution.success' || status === 'execution.failed' || status === 'execution.stopped') {
-                    ended = true;
-                    emit('end', { type: status });
+                  if (isTerminalEvent(status)) {
+                    endAndCleanup(status);
                     return;
                   }
                 } catch {}
@@ -155,13 +159,13 @@ export class RunsClient {
             })();
           },
           onClose: () => {
-            // if ended or closed, iterator should complete; otherwise, reconnect logic handles elsewhere
-          }
+            // no-op; reconnect and end are handled elsewhere
+          },
         },
         {
           headers,
           withCredentials: options?.withCredentials,
-          signal: options?.signal
+          signal: options?.signal,
         }
       );
     };
@@ -171,11 +175,7 @@ export class RunsClient {
     const client = this;
     const handle: RunHandle = {
       sessionId,
-      on: (event, handler) => {
-        if (!listeners.has(event)) listeners.set(event, new Set());
-        listeners.get(event)!.add(handler);
-        return () => listeners.get(event)!.delete(handler);
-      },
+      on: (event, handler) => emitter.on(event as string, handler),
       async wait(): Promise<RunResult> {
         if (ended) {
           return await client.getResults(sessionId);
@@ -196,45 +196,18 @@ export class RunsClient {
           });
         });
       },
-      async submit(data: UserInteractionData) {
-        await client.submitUserInteraction(sessionId, data);
-      },
-      async interrupt() {
-        await client.interrupt(sessionId);
-      },
-      async replayWebhooks() {
-        return await client.replayWebhooks(sessionId);
-      },
       close() {
         closed = true;
-        conn?.close();
-        // complete iterator and clear listeners
-        if (resolveNext) {
-          resolveNext({ value: undefined as any, done: true });
-          resolveNext = null;
-        }
-        listeners.clear();
+        try { conn?.close(); } catch {}
+        stream.close();
+        emitter.clear();
       },
       async *[Symbol.asyncIterator](): AsyncIterator<SseMessage> {
-        try {
-          while (true) {
-            if (queue.length) {
-              yield queue.shift()!;
-              continue;
-            }
-            const next = await new Promise<any>(r => (resolveNext = r));
-            if (next && next.done) {
-              return;
-            }
-            if (next) yield next.value;
-          }
-        } finally {
-          // iterator closed by consumer; no action
+        for await (const msg of stream) {
+          yield msg;
         }
-      }
+      },
     };
-
-    // methods already close over client
 
     return handle;
   }

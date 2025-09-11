@@ -149,12 +149,9 @@ export interface RunHandle {
   sessionId: string;
   on(
     event: 'open' | 'reconnect' | 'error' | 'end' | SseEventName | 'message',
-    handler: (e: any) => void
+    handler: (e: unknown) => void
   ): () => void;
   wait(): Promise<RunResult>;
-  submit(data: UserInteractionData): Promise<void>;
-  interrupt(): Promise<void>;
-  replayWebhooks(): Promise<WebhookReplayResponse>;
   close(): void;
   [Symbol.asyncIterator](): AsyncIterator<SseMessage>;
 }
