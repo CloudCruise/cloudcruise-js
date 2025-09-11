@@ -1,6 +1,8 @@
 import { getEnv } from './utils/env.js';
 import { VaultClient } from './vault/VaultClient.js';
 import { WorkflowsClient } from './workflows/WorkflowsClient.js';
+import { RunsClient } from './runs/RunsClient.js';
+import { WebhookClient } from './webhook/WebhookClient.js';
 
 export interface CloudCruiseClientParams {
   apiKey?: string;
@@ -15,6 +17,8 @@ export class CloudCruiseClient {
   
   public readonly vault: VaultClient;
   public readonly workflows: WorkflowsClient;
+  public readonly runs: RunsClient;
+  public readonly webhook: WebhookClient;
 
   constructor(params?: CloudCruiseClientParams) {
     const apiKey = params?.apiKey ?? getEnv('CLOUDCRUISE_API_KEY');
@@ -35,6 +39,8 @@ export class CloudCruiseClient {
     // Initialize namespace clients
     this.vault = new VaultClient(this.makeRequest.bind(this), this.encryptionKey);
     this.workflows = new WorkflowsClient(this.makeRequest.bind(this));
+    this.runs = new RunsClient(this.makeRequest.bind(this), this.baseUrl, this.apiKey, this.workflows);
+    this.webhook = new WebhookClient();
   }
 
   /**
