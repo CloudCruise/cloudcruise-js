@@ -109,18 +109,12 @@ export class RunsClient {
       s.on('ping', (evt) => emit('ping', evt));
       s.on('run.event', (msg: unknown) => {
         const sseMsg = msg as SseMessage;
+        if (sseMsg.event !== 'run.event') return;
         stream.push(sseMsg);
         emit('run.event', sseMsg);
 
-        let eventType: string | undefined;
-        const data: any = (sseMsg as any)?.data;
-        if (data && typeof data === 'object') {
-          const outer = data as Record<string, unknown>;
-          if (typeof (outer as any)['event'] === 'string') {
-            eventType = String((outer as any)['event']);
-          }
-        }
-        if (isTerminalEvent(eventType)) {
+        const eventType = sseMsg.data.event;
+        if (typeof eventType === 'string' && isTerminalEvent(eventType)) {
           endAndCleanup(eventType);
         }
       });
@@ -146,9 +140,9 @@ export class RunsClient {
         })();
       });
       s.on('reconnect', (e) => emit('reconnect', e));
-      s.on('end', (e) => {
-        const t = (e as any)?.type as EventType | undefined;
-        if (t && isTerminalEvent(t)) {
+      s.on('end', (e: unknown) => {
+        const t = (e as { type?: EventType | string } | undefined)?.type;
+        if (t && typeof t === 'string' && isTerminalEvent(t)) {
           endAndCleanup(t);
         } else {
           // End without explicit type; still clean up

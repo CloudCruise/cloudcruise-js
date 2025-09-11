@@ -1,10 +1,10 @@
 import { openSSE, type SSEConnection } from './sse.js';
 import { SimpleEventEmitter } from './events.js';
 import { AsyncEventQueue } from './asyncQueue.js';
-import type { SseMessage } from '../runs/types.js';
+import type { SseMessage, RunEventEnvelope, PingEnvelope, EventType } from '../runs/types.js';
 
 type EventName = 'open' | 'error' | 'close' | 'ping' | 'run.event' | 'end' | 'reconnect' | 'message';
-type Listener = (e: any) => void;
+type Listener = (e: unknown) => void;
 
 interface SubscribeOptions {
   signal?: AbortSignal;
@@ -99,6 +99,9 @@ export class ConnectionManager {
   }
 
   subscribe(sessionId: string, opts?: SubscribeOptions): SessionSubscription {
+    // Kick off connection if not already connected
+    try { void this.connectIfNeeded(); } catch {}
+
     // Ensure channel exists
     let channel = this.sessions.get(sessionId);
     if (!channel) {
@@ -151,8 +154,9 @@ export class ConnectionManager {
     };
 
     const url = `${this.baseUrl}/run/clients/${this.clientId}/events`;
+    // Establish SSE connection to the multiplexed endpoint
 
-    const emitAll = (event: EventName, payload?: any) => {
+    const emitAll = (event: EventName, payload?: unknown) => {
       for (const ch of this.sessions.values()) {
         ch.emitter.emit(event, payload);
       }
@@ -168,27 +172,40 @@ export class ConnectionManager {
             emitAll('open');
           },
           onEvent: (evt) => {
-            if (evt.event === 'ping') {
-              emitAll('ping', evt);
+            type RawRunEvent = { event: 'run.event'; data?: { data?: RunEventEnvelope['data'] } };
+            type RawPingEvent = { event: 'ping'; data?: PingEnvelope['data'] };
+
+            if ((evt as RawPingEvent).event === 'ping') {
+              emitAll('ping', evt as RawPingEvent);
               return;
             }
-            if (evt.event === 'run.event') {
-              const data = (evt as any)?.data;
-              const sessionId = data?.payload?.session_id;
-              if (!sessionId) return;
-              const channel = this.sessions.get(sessionId);
-              if (!channel) return;
 
-              const msg: SseMessage = { event: 'run.event', data } as SseMessage;
+            if ((evt as RawRunEvent).event === 'run.event') {
+              const raw = evt as RawRunEvent;
+              const data = raw.data?.data;
+              if (!data) {
+                return;
+              }
+              const sessionId = (data as RunEventEnvelope['data']).payload?.session_id as string | undefined;
+              if (!sessionId) {
+                return;
+              }
+
+              const channel = this.sessions.get(sessionId);
+              if (!channel) {
+                return;
+              }
+
+              const msg: SseMessage = { event: 'run.event', data };
 
               // fan-out to all subscribers
               for (const q of channel.subscribers) q.push(msg);
               channel.emitter.emit('run.event', msg);
 
-              const eventType = data?.event;
+              const eventType = data.event as string | undefined;
               if (isFinalEvent(eventType)) {
                 channel.ended = true;
-                channel.emitter.emit('end', { type: eventType });
+                channel.emitter.emit('end', { type: eventType as EventType });
                 for (const q of channel.subscribers) q.close();
                 channel.subscribers.clear();
                 // Remove the channel after notifying
@@ -196,6 +213,7 @@ export class ConnectionManager {
               }
               return;
             }
+            const u = evt as { event: string; id?: string };
           },
           onError: (err) => {
             // Surface error to all channels and attempt reconnect

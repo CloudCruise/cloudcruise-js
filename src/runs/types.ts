@@ -42,10 +42,6 @@ export interface StartRunRequest {
   dry_run?: DryRun;
   webhook?: PayloadWebhook;
   additional_context?: Record<string, any>;
-  /**
-   * Optional client identifier used to bind the run to a multiplexed connection.
-   * Provided by the backend via POST /client and passed here by the SDK.
-   */
   client_id?: string;
 }
 
@@ -124,7 +120,7 @@ export interface RunEventEnvelope {
   event: 'run.event';
   data: {
     event: EventType | string;
-    payload: Record<string, any>;
+    payload: { session_id: string; [key: string]: any };
     expires_at: number;
     timestamp: number;
   };
