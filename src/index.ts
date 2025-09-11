@@ -53,3 +53,4 @@ export type {
 } from './webhook/types.js';
 
 export { VerificationError } from './webhook/types.js';
+export { InputValidationError } from './workflows/types.js';

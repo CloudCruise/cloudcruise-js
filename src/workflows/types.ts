@@ -27,3 +27,25 @@ export interface WorkflowInputSchema {
 export interface WorkflowMetadata {
   input_schema: WorkflowInputSchema;
 }
+
+export interface InvalidTypeDetail {
+  field: string;
+  expected: string[];
+  actual: string;
+}
+
+export class InputValidationError extends Error {
+  public readonly missingRequired: string[];
+  public readonly invalidTypes: InvalidTypeDetail[];
+
+  constructor(
+    message: string = 'Input validation failed',
+    missingRequired: string[] = [],
+    invalidTypes: InvalidTypeDetail[] = []
+  ) {
+    super(message);
+    this.name = 'InputValidationError';
+    this.missingRequired = missingRequired;
+    this.invalidTypes = invalidTypes;
+  }
+}
