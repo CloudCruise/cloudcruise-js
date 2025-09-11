@@ -8,9 +8,10 @@ import type {
   SseMessage,
   EventType
 } from './types.js';
-import { openSSE } from '../utils/sse.js';
 import { AsyncEventQueue } from '../utils/asyncQueue.js';
 import { SimpleEventEmitter } from '../utils/events.js';
+import { ConnectionManager } from '../utils/connectionManager.js';
+import type { SessionSubscription } from '../utils/connectionManager.js';
 
 export class RunsClient {
   private readonly makeRequest: <T = any>(
@@ -18,11 +19,10 @@ export class RunsClient {
     path: string,
     body?: any
   ) => Promise<T>;
-  private readonly baseUrl: string;
-  private readonly apiKey: string;
   private readonly workflows?: {
     validateWorkflowInput: (workflowId: string, payload: Record<string, any>) => Promise<void>;
   };
+  private readonly connectionManager?: ConnectionManager;
 
   constructor(
     makeRequest: <T = any>(
@@ -30,16 +30,14 @@ export class RunsClient {
       path: string,
       body?: any
     ) => Promise<T>,
-    baseUrl: string,
-    apiKey: string,
     workflows?: {
       validateWorkflowInput: (workflowId: string, payload: Record<string, any>) => Promise<void>;
-    }
+    },
+    connectionManager?: ConnectionManager
   ) {
     this.makeRequest = makeRequest;
-    this.baseUrl = baseUrl.replace(/\/$/, '');
-    this.apiKey = apiKey;
     this.workflows = workflows;
+    this.connectionManager = connectionManager;
   }
 
   /**
@@ -53,6 +51,12 @@ export class RunsClient {
         request.run_input_variables
       );
     }
+    // Ensure client_id and connection are ready to avoid missing early events
+    if (this.connectionManager) {
+      const clientId = await this.connectionManager.ensureClientId();
+      await this.connectionManager.connectIfNeeded();
+      request.client_id = clientId;
+    }
     const { session_id } = await this.makeRequest<{ session_id: string }>('POST', '/run', request);
     return this.subscribeToSession(session_id, options);
   }
@@ -61,13 +65,12 @@ export class RunsClient {
    * Subscribes to SSE events for a given session. Returns a handle with helpers.
    */
   subscribeToSession(sessionId: string, options?: RunStreamOptions): RunHandle {
-    const url = `${this.baseUrl}/run/${sessionId}/events`;
     const emitter = new SimpleEventEmitter();
     const stream = new AsyncEventQueue<SseMessage>();
 
     let ended = false;
     let closed = false;
-    let conn: { close: () => void } | null = null;
+    let sub: SessionSubscription | null = null;
 
     const reconnectCfg = {
       enabled: options?.reconnect?.enabled ?? true,
@@ -89,85 +92,69 @@ export class RunsClient {
       if (ended) return;
       ended = true;
       closed = true;
-      try { conn?.close(); } catch {}
+      try { sub?.close(); } catch {}
       emit('end', { type: status });
       stream.close();
       emitter.clear();
     };
 
     const connect = () => {
-      const headers: Record<string, string> = {
-        'cc-key': this.apiKey,
-        ...(options?.headers ?? {}),
-      };
+      if (!this.connectionManager) {
+        throw new Error('ConnectionManager is not configured');
+      }
+      sub = this.connectionManager.subscribe(sessionId, { signal: options?.signal });
 
-      conn = openSSE(
-        url,
-        {
-          onOpen: () => emit('open', undefined),
-          onEvent: (evt) => {
-            if (evt.event === 'ping') {
-              const pingMsg: SseMessage = { event: 'ping', data: (evt.data ?? {}) as Record<string, unknown> } as SseMessage;
-              emit('ping', pingMsg);
-              return;
-            }
-            if (evt.event === 'run.event') {
-              const data = evt.data as unknown;
-              const sseMsg: SseMessage = { event: 'run.event', data } as SseMessage;
-              stream.push(sseMsg);
-              emit('run.event', sseMsg);
+      const s = sub!;
+      s.on('open', () => emit('open', undefined));
+      s.on('ping', (evt) => emit('ping', evt));
+      s.on('run.event', (msg: unknown) => {
+        const sseMsg = msg as SseMessage;
+        stream.push(sseMsg);
+        emit('run.event', sseMsg);
 
-              let eventType: string | undefined;
-              if (data && typeof data === 'object') {
-                const outer = data as Record<string, unknown>;
-                const inner = outer['data'];
-                if (inner && typeof inner === 'object' && 'event' in (inner as Record<string, unknown>)) {
-                  const evtVal = (inner as Record<string, unknown>)['event'];
-                  if (typeof evtVal === 'string') eventType = evtVal;
-                }
-              }
-              if (isTerminalEvent(eventType)) {
-                endAndCleanup(eventType);
-              }
-            }
-          },
-          onError: (err) => {
-            emit('error', err);
-            if (!reconnectCfg.enabled || ended || closed) return;
-
-            (async () => {
-              for (const base of reconnectCfg.delays) {
-                if (ended || closed) return;
-                await new Promise(r => setTimeout(r, base));
-                if (ended || closed) return;
-
-                try {
-                  const snapshot = await this.getResults(sessionId);
-                  const status = snapshot?.status;
-                  if (isTerminalEvent(status)) {
-                    endAndCleanup(status);
-                    return;
-                  }
-                } catch {}
-
-                emit('reconnect', { attemptDelayMs: base });
-                conn?.close();
-                if (closed) return;
-                connect();
+        let eventType: string | undefined;
+        const data: any = (sseMsg as any)?.data;
+        if (data && typeof data === 'object') {
+          const outer = data as Record<string, unknown>;
+          if (typeof (outer as any)['event'] === 'string') {
+            eventType = String((outer as any)['event']);
+          }
+        }
+        if (isTerminalEvent(eventType)) {
+          endAndCleanup(eventType);
+        }
+      });
+      s.on('error', (err) => {
+        emit('error', err);
+        if (!reconnectCfg.enabled || ended || closed) return;
+        (async () => {
+          for (const base of reconnectCfg.delays) {
+            if (ended || closed) return;
+            await new Promise(r => setTimeout(r, base));
+            if (ended || closed) return;
+            try {
+              const snapshot = await this.getResults(sessionId);
+              const status = snapshot?.status;
+              if (isTerminalEvent(status)) {
+                endAndCleanup(status);
                 return;
               }
-            })();
-          },
-          onClose: () => {
-            // no-op; reconnect and end are handled elsewhere
-          },
-        },
-        {
-          headers,
-          withCredentials: options?.withCredentials,
-          signal: options?.signal,
+            } catch {}
+            emit('reconnect', { attemptDelayMs: base });
+            return; // manager handles reconnect of mux
+          }
+        })();
+      });
+      s.on('reconnect', (e) => emit('reconnect', e));
+      s.on('end', (e) => {
+        const t = (e as any)?.type as EventType | undefined;
+        if (t && isTerminalEvent(t)) {
+          endAndCleanup(t);
+        } else {
+          // End without explicit type; still clean up
+          endAndCleanup('execution.stopped');
         }
-      );
+      });
     };
 
     connect();
@@ -198,7 +185,7 @@ export class RunsClient {
       },
       close() {
         closed = true;
-        try { conn?.close(); } catch {}
+        try { sub?.close(); } catch {}
         stream.close();
         emitter.clear();
       },
