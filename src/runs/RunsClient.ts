@@ -44,9 +44,11 @@ export class RunsClient {
    * The handle exposes sessionId immediately and subscribes to SSE under the hood.
    */
   async start(request: StartRunRequest, options?: RunStreamOptions): Promise<RunHandle> {
-    // Validate input against workflow schema when workflows client is available
     if (this.workflows) {
-      await this.workflows.validateWorkflowInput(request.workflow_id, request.run_input_variables);
+      await this.workflows.validateWorkflowInput(
+        request.workflow_id,
+        request.run_input_variables
+      );
     }
     const { session_id } = await this.makeRequest<{ session_id: string }>('POST', '/run', request);
     return this.subscribeToSession(session_id, options);

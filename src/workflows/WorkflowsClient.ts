@@ -26,8 +26,7 @@ export class WorkflowsClient {
    * Retrieves all workflows of the workspace the API key is associated with
    */
   async getAllWorkflows(): Promise<Workflow[]> {
-    const response = await this.makeRequest<Workflow[]>('GET', '/workflows');
-    return Array.isArray(response) ? response : [response];
+    return await this.makeRequest<Workflow[]>('GET', '/workflows');
   }
 
   /**
@@ -52,29 +51,41 @@ export class WorkflowsClient {
     const properties = schema.properties ?? {};
     const required = schema.required ?? [];
 
-    const missingRequired = required.filter((k) => payload[k] === undefined);
+    // Check only required keys for presence and type
+    const missingRequired = required.filter((key) => payload[key] === undefined);
 
-    const invalidTypes: { field: string; expected: string[]; actual: string }[] = [];
+    // Keep track of invalid types, if any, for a useful error message.
+    type TypeDetail = { field: string; expected: string[]; actual: string };
+    const invalidTypes: TypeDetail[] = [];
 
-    const getType = (v: any): string => {
+    const detectType = (v: unknown): string => {
       if (v === null) return 'null';
       if (Array.isArray(v)) return 'array';
       if (typeof v === 'number') return Number.isInteger(v) ? 'integer' : 'number';
       return typeof v;
     };
 
-    for (const [key, expectedTypesRaw] of Object.entries(properties)) {
-      if (!(key in payload)) continue;
-      const expectedTypes = expectedTypesRaw.map((t) => String(t).toLowerCase());
-      const actual = getType((payload as any)[key]);
+    const expectedTypesOf = (def: { type: string[] } | undefined): string[] => {
+      if (!def || !Array.isArray(def.type)) return [];
+      return def.type.map((t) => String(t).toLowerCase());
+    };
 
-      const ok =
-        expectedTypes.includes('any') ||
-        expectedTypes.includes(actual) ||
-        (actual === 'integer' && expectedTypes.includes('number'));
+    const matches = (expected: string[], actual: string): boolean => {
+      if (expected.length === 0) return true; // unknown => don't enforce
+      if (expected.includes(actual)) return true;
+      if (actual === 'integer' && expected.includes('number')) return true;
+      return false;
+    };
 
-      if (!ok) {
-        invalidTypes.push({ field: key, expected: expectedTypesRaw, actual });
+    // Validate types for:
+    // - all required keys that are present
+    // - optional keys if they exist in the payload
+    for (const [key, schemaDef] of Object.entries(properties)) {
+      if (payload[key] === undefined) continue; // optional and not provided
+      const expected = expectedTypesOf(schemaDef);
+      const actual = detectType(payload[key]);
+      if (!matches(expected, actual)) {
+        invalidTypes.push({ field: key, expected: expected.length ? expected : ['any'], actual });
       }
     }
 
@@ -83,14 +94,13 @@ export class WorkflowsClient {
       if (missingRequired.length) parts.push(`missing required: ${missingRequired.join(', ')}`);
       if (invalidTypes.length) {
         parts.push(
-          'invalid types: ' +
-            invalidTypes
-              .map((e) => `${e.field} expected [${e.expected.join(' | ')}], got ${e.actual}`)
-              .join('; ')
+          invalidTypes
+            .map((e) => `${e.field}: expected ${e.expected.join(' | ')}, got ${e.actual}`)
+            .join('; ')
         );
       }
-      const msg = `Workflow input validation failed: ${parts.join(' | ')}`;
-      throw new InputValidationError(msg, missingRequired, invalidTypes);
+      const message = `Workflow input validation failed: ${parts.join(' | ')}`;
+      throw new InputValidationError(message, missingRequired, invalidTypes);
     }
   }
 }

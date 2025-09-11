@@ -18,9 +18,13 @@ export interface Workflow {
 }
 
 
+export type WorkflowPropertySchema = {
+  type:  string[];
+};
+
 export interface WorkflowInputSchema {
   type?: 'object';
-  properties?: Record<string, string[]>;
+  properties?: Record<string, WorkflowPropertySchema>;
   required?: string[];
 }
 
