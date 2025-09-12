@@ -24,7 +24,7 @@ CloudCruise is a JavaScript/TypeScript SDK for the CloudCruise Platform that pro
 
 ### Main Components
 
-**CloudCruiseClient** (`src/CloudCruiseClient.ts`)
+**CloudCruise** (`src/CloudCruise.ts`)
 - Main entry point that coordinates all client functionality
 - Handles authentication via API key and cc-key header
 - Manages client-side encryption for sensitive data

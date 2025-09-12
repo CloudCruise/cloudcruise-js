@@ -3,8 +3,8 @@
  * Official client library for the CloudCruise Platform
  */
 
-export { CloudCruiseClient } from './CloudCruiseClient.js';
-export type { CloudCruiseClientParams } from './CloudCruiseClient.js';
+export { CloudCruise } from './CloudCruise.js';
+export type { CloudCruiseParams } from './CloudCruise.js';
 
 export { VaultClient } from './vault/VaultClient.js';
 export { WorkflowsClient } from './workflows/WorkflowsClient.js';

@@ -7,9 +7,9 @@ The Webhook Client provides secure webhook payload verification using HMAC-SHA25
 ### Basic Webhook Verification
 
 ```typescript
-import { CloudCruiseClient } from "cloudcruise";
+import { CloudCruise } from "cloudcruise";
 
-const client = new CloudCruiseClient({
+const client = new CloudCruise({
   apiKey: "your-api-key",
   encryptionKey: "your-encryption-key",
 });

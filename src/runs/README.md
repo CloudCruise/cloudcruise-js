@@ -7,10 +7,10 @@ The Runs Client provides workflow execution and real-time monitoring via Server-
 ### Basic Workflow Execution
 
 ```typescript
-import { CloudCruiseClient } from "cloudcruise";
+import { CloudCruise } from "cloudcruise";
 
 // Get keys at https://app.cloudcruise.com/settings/api-keys and https://app.cloudcruise.com/settings/encryption-keys
-const client = new CloudCruiseClient({
+const client = new CloudCruise({
   apiKey: "your-api-key",
   encryptionKey: "your-encryption-key",
 });

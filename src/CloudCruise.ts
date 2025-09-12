@@ -5,13 +5,13 @@ import { RunsClient } from './runs/RunsClient.js';
 import { WebhookClient } from './webhook/WebhookClient.js';
 import { ConnectionManager } from './utils/connectionManager.js';
 
-export interface CloudCruiseClientParams {
+export interface CloudCruiseParams {
   apiKey?: string;
   baseUrl?: string;
   encryptionKey?: string;
 }
 
-export class CloudCruiseClient {
+export class CloudCruise {
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly encryptionKey: string;
@@ -22,7 +22,7 @@ export class CloudCruiseClient {
   public readonly webhook: WebhookClient;
   private readonly connectionManager: ConnectionManager;
 
-  constructor(params?: CloudCruiseClientParams) {
+  constructor(params?: CloudCruiseParams) {
     const apiKey = params?.apiKey ?? getEnv('CLOUDCRUISE_API_KEY');
     const baseUrl = params?.baseUrl ?? getEnv('CLOUDCRUISE_BASE_URL') ?? 'https://api.cloudcruise.com';
     const encryptionKey = params?.encryptionKey ?? getEnv('CLOUDCRUISE_ENCRYPTION_KEY');

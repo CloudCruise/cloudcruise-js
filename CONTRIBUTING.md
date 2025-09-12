@@ -57,7 +57,7 @@ npm run dev
 
 ```
 src/
-├── CloudCruiseClient.ts     # Main client entry point
+├── CloudCruise.ts     # Main client entry point
 ├── index.ts                 # Package exports
 ├── vault/                   # Encrypted credential storage
 ├── workflows/               # Workflow definitions and execution
@@ -68,7 +68,7 @@ src/
 
 ### Key Components
 
-- **CloudCruiseClient** - Main entry point that coordinates all functionality
+- **CloudCruise** - Main entry point that coordinates all functionality
 - **VaultClient** - Manages encrypted credential storage with AES-256-GCM
 - **WorkflowsClient** - Handles workflow definitions and metadata
 - **RunsClient** - Executes workflows with real-time SSE streaming
@@ -109,7 +109,7 @@ To test your changes in a real application before submitting a PR:
 
 4. **Use the local version**
    ```typescript
-   import { CloudCruiseClient } from "cloudcruise";
+   import { CloudCruise } from "cloudcruise";
    // Test your changes here
    ```
 
@@ -176,9 +176,12 @@ The project currently uses:
    ```
 
 6. **Push and Create PR**
+
    ```bash
    git push origin feature/your-feature-name
+
    ```
+
    Then create a pull request on GitHub.
 
 ### Pull Request Guidelines

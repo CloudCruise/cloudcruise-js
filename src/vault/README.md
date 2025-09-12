@@ -7,9 +7,9 @@ The Vault Client provides secure, encrypted credential storage with client-side 
 ### Basic Operations
 
 ```typescript
-import { CloudCruiseClient } from "cloudcruise";
+import { CloudCruise } from "cloudcruise";
 
-const client = new CloudCruiseClient({
+const client = new CloudCruise({
   apiKey: "your-api-key",
   encryptionKey: "your-hex-encryption-key", // Required for vault operations
 });
