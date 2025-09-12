@@ -50,6 +50,9 @@ export class ConnectionManager {
     return this.clientId;
   }
 
+  /* 
+  try to use crypto.randomUUID if the platform is supported. otherwise fallback to other methods: https://stackoverflow.com/questions/105034/how-do-i-create-a-guid-uuid/2117523#2117523
+  */
   private generateClientId(): string {
     type CryptoLike = {
       randomUUID?: () => string;

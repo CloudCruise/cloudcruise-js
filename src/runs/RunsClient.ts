@@ -22,9 +22,10 @@ export class RunsClient {
   private readonly workflows?: {
     validateWorkflowInput: (workflowId: string, payload: Record<string, any>) => Promise<void>;
   };
-  private readonly connectionManager?: ConnectionManager;
+  private readonly connectionManager: ConnectionManager;
 
   constructor(
+    connectionManager: ConnectionManager,
     makeRequest: <T = any>(
       method: 'GET' | 'POST' | 'PUT' | 'DELETE',
       path: string,
@@ -32,8 +33,7 @@ export class RunsClient {
     ) => Promise<T>,
     workflows?: {
       validateWorkflowInput: (workflowId: string, payload: Record<string, any>) => Promise<void>;
-    },
-    connectionManager?: ConnectionManager
+    }
   ) {
     this.makeRequest = makeRequest;
     this.workflows = workflows;
@@ -52,11 +52,9 @@ export class RunsClient {
       );
     }
     // Ensure client_id and connection are ready to avoid missing early events
-    if (this.connectionManager) {
-      const clientId = await this.connectionManager.ensureClientId();
-      await this.connectionManager.connectIfNeeded();
-      request.client_id = clientId;
-    }
+    const clientId = await this.connectionManager.ensureClientId();
+    await this.connectionManager.connectIfNeeded();
+    request.client_id = clientId;
     const { session_id } = await this.makeRequest<{ session_id: string }>('POST', '/run', request);
     return this.subscribeToSession(session_id, options);
   }
@@ -99,9 +97,6 @@ export class RunsClient {
     };
 
     const connect = () => {
-      if (!this.connectionManager) {
-        throw new Error('ConnectionManager is not configured');
-      }
       sub = this.connectionManager.subscribe(sessionId, { signal: options?.signal });
 
       const s = sub!;

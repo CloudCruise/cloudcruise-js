@@ -42,7 +42,7 @@ export class CloudCruiseClient {
     this.connectionManager = new ConnectionManager(this.baseUrl, this.apiKey);
     this.vault = new VaultClient(this.makeRequest.bind(this), this.encryptionKey);
     this.workflows = new WorkflowsClient(this.makeRequest.bind(this));
-    this.runs = new RunsClient(this.makeRequest.bind(this), this.workflows, this.connectionManager);
+    this.runs = new RunsClient(this.connectionManager, this.makeRequest.bind(this), this.workflows);
     this.webhook = new WebhookClient();
   }
 
