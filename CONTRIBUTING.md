@@ -225,7 +225,7 @@ Users can install alpha versions with:
 # Install latest alpha
 npm install cloudcruise@alpha
 
-# Install specific alpha version  
+# Install specific alpha version
 npm install cloudcruise@0.0.2-alpha.1
 
 # Install latest stable (default behavior)
