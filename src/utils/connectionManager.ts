@@ -154,8 +154,6 @@ export class ConnectionManager {
     };
 
     const url = `${this.baseUrl}/run/clients/${this.clientId}/events`;
-    // Establish SSE connection to the multiplexed endpoint
-
     const emitAll = (event: EventName, payload?: unknown) => {
       for (const ch of this.sessions.values()) {
         ch.emitter.emit(event, payload);
