@@ -193,6 +193,57 @@ The project currently uses:
 - Include documentation updates for new features
 - Add tests when the testing framework becomes available
 
+## Publishing Alpha Versions
+
+For maintainers who need to publish alpha versions for testing:
+
+### Publishing an Alpha Release
+
+```bash
+# 1. Ensure you're on the main branch and up to date
+git checkout main
+git pull origin main
+
+# 2. Build the project
+npm run build
+
+# 3. Set the alpha version (creates version like 0.0.2-alpha.0)
+npm version prerelease --preid=alpha
+
+# 4. Publish with alpha tag
+npm publish --tag alpha
+
+# 5. Push the version commit and tag
+git push origin main --tags
+```
+
+### Installing Alpha Versions
+
+Users can install alpha versions with:
+
+```bash
+# Install latest alpha
+npm install cloudcruise@alpha
+
+# Install specific alpha version  
+npm install cloudcruise@0.0.2-alpha.1
+
+# Install latest stable (default behavior)
+npm install cloudcruise
+```
+
+### Incrementing Alpha Versions
+
+For subsequent alpha releases on the same base version:
+
+```bash
+# This will increment from 0.0.2-alpha.0 to 0.0.2-alpha.1
+npm version prerelease
+
+npm publish --tag alpha
+git push origin main --tags
+```
+
 ## Getting Help
 
 - **Issues**: Report bugs or request features via [GitHub Issues](https://github.com/CloudCruise/cloudcruise-js/issues)
