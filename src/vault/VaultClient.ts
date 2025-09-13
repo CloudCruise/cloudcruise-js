@@ -86,14 +86,33 @@ export class VaultClient {
 
   /**
    * Updates an existing vault entry
+   * @param updates - Vault entry updates including required fields
+   * @param updates.permissioned_user_id - Required: User identifier for the vault entry
+   * @param updates.user_name - Required: Username or email
+   * @param updates.password - Required: User password
+   * @param updates.domain - Required: Target domain for the credentials
    */
-  async update(id: string, updates: Partial<VaultEntry>): Promise<VaultEntry> {
-    const entry = {
-      id,
-      ...updates
-    };
+  async update(updates: Partial<VaultEntry> & {
+    permissioned_user_id: string;
+    user_name: string;
+    password: string;
+    domain: string;
+  }): Promise<VaultEntry> {
+    // Validate required fields
+    if (!updates.permissioned_user_id) {
+      throw new Error('permissioned_user_id is required for vault updates');
+    }
+    if (!updates.user_name) {
+      throw new Error('user_name is required for vault updates');
+    }
+    if (!updates.password) {
+      throw new Error('password is required for vault updates');
+    }
+    if (!updates.domain) {
+      throw new Error('domain is required for vault updates');
+    }
     
-    let processedEntry = { ...entry };
+    let processedEntry = { ...updates };
     
     // Encrypt sensitive fields
     processedEntry = await encryptSensitiveFields(processedEntry, this.encryptionKey);
@@ -106,10 +125,11 @@ export class VaultClient {
 
   /**
    * Deletes a vault entry by domain and permissioned user ID
-   * @param domain - The domain of the vault entry to delete
-   * @param permissioned_user_id - The permissioned user ID of the vault entry to delete
+   * @param params - Object containing domain and permissioned_user_id
+   * @param params.domain - The domain of the vault entry to delete
+   * @param params.permissioned_user_id - The permissioned user ID of the vault entry to delete
    */
-  async delete(domain: string, permissioned_user_id: string): Promise<void> {
-    await this.makeRequest('DELETE', '/vault', { domain, permissioned_user_id });
+  async delete(params: { domain: string; permissioned_user_id: string }): Promise<void> {
+    await this.makeRequest('DELETE', '/vault', params);
   }
 }

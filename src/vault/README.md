@@ -41,14 +41,20 @@ const encryptedEntries = await client.vault.get({
 });
 
 // Update a vault entry
-const updatedEntry = await client.vault.update(entry.id!, {
-  password: "new_secure_password", // Automatically encrypted
+const updatedEntry = await client.vault.update({
+  permissioned_user_id: entry.permissioned_user_id,
+  user_name: entry.user_name, // Required field
+  password: "new_secure_password", // Required field - automatically encrypted
+  domain: entry.domain, // Required field
   user_alias: "Updated Account Name", // Human-readable identifier
   allow_multiple_sessions: true, // Allow concurrent workflow usage
 });
 
 // Delete a vault entry
-await client.vault.delete("https://example.com", "user123");
+await client.vault.delete({ 
+  permissioned_user_id: "user123", 
+  domain: "https://example.com" 
+});
 ```
 
 ### Advanced Configuration
