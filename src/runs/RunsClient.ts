@@ -2,6 +2,7 @@ import type {
   StartRunRequest,
   UserInteractionData,
   RunResult,
+  GetRunResult,
   WebhookReplayResponse,
   RunHandle,
   RunStreamOptions,
@@ -152,11 +153,11 @@ export class RunsClient {
     const handle: RunHandle = {
       sessionId,
       on: (event, handler) => emitter.on(event as string, handler),
-      async wait(): Promise<RunResult> {
+      async wait(): Promise<GetRunResult> {
         if (ended) {
           return await client.getResults(sessionId);
         }
-        return await new Promise<RunResult>((resolve, reject) => {
+        return await new Promise<GetRunResult>((resolve, reject) => {
           const offEnd = handle.on('end', async () => {
             offErr();
             try {
@@ -203,9 +204,9 @@ export class RunsClient {
    * @param sessionId - The unique identifier for the workflow execution session
    * @returns Promise resolving to complete run results
    */
-  async getResults(sessionId: string): Promise<RunResult> {
+  async getResults(sessionId: string): Promise<GetRunResult> {
     const path = `/run/${sessionId}`;
-    return await this.makeRequest<RunResult>('GET', path);
+    return await this.makeRequest<GetRunResult>('GET', path);
   }
 
   /**

@@ -84,8 +84,7 @@ export class CloudCruise {
 
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
-        const jsonResponse = await response.json();
-        return jsonResponse.data || jsonResponse;
+        return await response.json();
       } else {
         return await response.text() as unknown as T;
       }
