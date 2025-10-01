@@ -13,7 +13,7 @@ export interface ProxyConfig {
 }
 
 export interface VaultEntry {
-  id?: string;
+  id: string;
   domain: string;
   permissioned_user_id: string;
   workspace_id?: string;

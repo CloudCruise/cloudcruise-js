@@ -3,14 +3,15 @@ import { VaultClient } from './vault/VaultClient.js';
 import { WorkflowsClient } from './workflows/WorkflowsClient.js';
 import { RunsClient } from './runs/RunsClient.js';
 import { WebhookClient } from './webhook/WebhookClient.js';
+import { ConnectionManager } from './utils/connectionManager.js';
 
-export interface CloudCruiseClientParams {
+export interface CloudCruiseParams {
   apiKey?: string;
   baseUrl?: string;
   encryptionKey?: string;
 }
 
-export class CloudCruiseClient {
+export class CloudCruise {
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly encryptionKey: string;
@@ -19,8 +20,9 @@ export class CloudCruiseClient {
   public readonly workflows: WorkflowsClient;
   public readonly runs: RunsClient;
   public readonly webhook: WebhookClient;
+  private readonly connectionManager: ConnectionManager;
 
-  constructor(params?: CloudCruiseClientParams) {
+  constructor(params?: CloudCruiseParams) {
     const apiKey = params?.apiKey ?? getEnv('CLOUDCRUISE_API_KEY');
     const baseUrl = params?.baseUrl ?? getEnv('CLOUDCRUISE_BASE_URL') ?? 'https://api.cloudcruise.com';
     const encryptionKey = params?.encryptionKey ?? getEnv('CLOUDCRUISE_ENCRYPTION_KEY');
@@ -37,9 +39,10 @@ export class CloudCruiseClient {
     this.encryptionKey = encryptionKey;
     
     // Initialize namespace clients
+    this.connectionManager = new ConnectionManager(this.baseUrl, this.apiKey);
     this.vault = new VaultClient(this.makeRequest.bind(this), this.encryptionKey);
     this.workflows = new WorkflowsClient(this.makeRequest.bind(this));
-    this.runs = new RunsClient(this.makeRequest.bind(this), this.baseUrl, this.apiKey, this.workflows);
+    this.runs = new RunsClient(this.connectionManager, this.makeRequest.bind(this), this.workflows);
     this.webhook = new WebhookClient();
   }
 
@@ -81,8 +84,7 @@ export class CloudCruiseClient {
 
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
-        const jsonResponse = await response.json();
-        return jsonResponse.data || jsonResponse;
+        return await response.json();
       } else {
         return await response.text() as unknown as T;
       }
