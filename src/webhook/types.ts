@@ -134,7 +134,5 @@ export type WebhookPayloadMap = {
   [WebhookEventType.ExecutionStopped]: EndRunPayload | ExecutionStoppedEarlyPayload;
 };
 
-export type WebhookPayload<E extends WebhookEventType = WebhookEventType> = WebhookEnvelope<
-  E,
-  WebhookPayloadMap[E]
->;
+export type WebhookPayload<E extends WebhookEventType = WebhookEventType> =
+  E extends WebhookEventType ? WebhookEnvelope<E, WebhookPayloadMap[E]> : never;
