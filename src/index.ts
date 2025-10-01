@@ -49,6 +49,7 @@ export type {
   RunEventEnvelope
 } from './runs/types.js';
 
+export { WebhookEventType } from './webhook/types.js';
 export type {
   WebhookPayload,
   WebhookVerificationOptions
