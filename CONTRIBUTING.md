@@ -76,26 +76,31 @@ src/
 
 ## Testing
 
-Currently, the project uses a placeholder test command. We welcome contributions to improve test coverage:
+Run the full test suite before opening a pull request:
 
 ```bash
-npm test  # Currently shows "no test specified"
+pnpm test
+
+# Or with npm
+npm test
 ```
 
-### Local Testing
+The test command runs a TypeScript build followed by Node's built-in test runner. Ensure these pass locally before submitting changes.
+
+### Local Package Testing
 
 To test your changes in a real application before submitting a PR:
 
 1. **Build the project**
 
    ```bash
-   npm run build
+   pnpm build
    ```
 
 2. **Create a package**
 
    ```bash
-   npm pack
+   pnpm pack
    ```
 
    This generates a `.tgz` file (e.g., `cloudcruise-0.0.X.tgz`) in the project root.
@@ -104,7 +109,7 @@ To test your changes in a real application before submitting a PR:
 
    ```bash
    cd /path/to/your/test-project
-   npm install /path/to/cloudcruise-js/cloudcruise-0.0.2.tgz
+   pnpm add /path/to/cloudcruise-js/cloudcruise-0.0.X.tgz
    ```
 
 4. **Use the local version**
@@ -114,13 +119,6 @@ To test your changes in a real application before submitting a PR:
    ```
 
 This workflow allows you to validate that your changes work correctly in real applications before contributing.
-
-**Future Testing Goals:**
-
-- Integration tests for API client functionality
-- Unit tests for encryption/decryption utilities
-- End-to-end tests with mock CloudCruise server
-- SSE connection and reconnection testing
 
 ## Code Quality
 
@@ -165,7 +163,7 @@ The project currently uses:
 
    ```bash
    pnpm build
-   # Run any available tests
+   pnpm test
    ```
 
 5. **Commit Your Changes**
@@ -191,58 +189,45 @@ The project currently uses:
 - Ensure the build passes (`pnpm build` succeeds)
 - Follow conventional commit format for commit messages
 - Include documentation updates for new features
-- Add tests when the testing framework becomes available
+- Add tests for new functionality
 
-## Publishing Alpha Versions
+## Publishing Stable Releases
 
-For maintainers who need to publish alpha versions for testing:
+For maintainers preparing an official release:
 
-### Publishing an Alpha Release
+### Publishing a Stable Release
 
 ```bash
 # 1. Ensure you're on the main branch and up to date
 git checkout main
 git pull origin main
 
-# 2. Build the project
-npm run build
+# 2. Build and test the project
+pnpm build
+pnpm test
 
-# 3. Set the alpha version (creates version like 0.0.2-alpha.0)
-npm version prerelease --preid=alpha
+# 3. Choose the appropriate semantic version bump
+pnpm version patch   # or pnpm version minor | pnpm version major
 
-# 4. Publish with alpha tag
-npm publish --tag alpha
+# 4. Publish with the default "latest" tag
+npm publish
 
 # 5. Push the version commit and tag
 git push origin main --tags
 ```
 
-### Installing Alpha Versions
+### Post-publish Verification
 
-Users can install alpha versions with:
-
-```bash
-# Install latest alpha
-npm install cloudcruise@alpha
-
-# Install specific alpha version
-npm install cloudcruise@0.0.2-alpha.1
-
-# Install latest stable (default behavior)
-npm install cloudcruise
-```
-
-### Incrementing Alpha Versions
-
-For subsequent alpha releases on the same base version:
+After publishing, validate the package from a clean environment:
 
 ```bash
-# This will increment from 0.0.2-alpha.0 to 0.0.2-alpha.1
-npm version prerelease
-
-npm publish --tag alpha
-git push origin main --tags
+mkdir /tmp/cloudcruise-release-check
+cd /tmp/cloudcruise-release-check
+pnpm init -y
+pnpm add cloudcruise
 ```
+
+Confirm the installed package imports correctly and exposes the expected type declarations before announcing the release.
 
 ## Getting Help
 
