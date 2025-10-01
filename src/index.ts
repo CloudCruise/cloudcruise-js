@@ -50,6 +50,7 @@ export type {
 } from './runs/types.js';
 
 export type {
+  WebhookEventType,
   WebhookPayload,
   WebhookVerificationOptions
 } from './webhook/types.js';
