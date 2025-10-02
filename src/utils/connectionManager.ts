@@ -1,7 +1,8 @@
 import { openSSE, type SSEConnection } from './sse.js';
 import { SimpleEventEmitter } from './events.js';
 import { AsyncEventQueue } from './asyncQueue.js';
-import type { SseMessage, RunEventEnvelope, PingEnvelope, EventType } from '../runs/types.js';
+import type { SseMessage, RunEventEnvelope, PingEnvelope } from '../runs/types.js';
+import { EventType } from '../events/types.js';
 
 type EventName = 'open' | 'error' | 'close' | 'ping' | 'run.event' | 'end' | 'reconnect' | 'message';
 type Listener = (e: unknown) => void;
@@ -18,7 +19,11 @@ interface SessionChannel {
 }
 
 function isFinalEvent(eventType: string | undefined): boolean {
-  return eventType === 'execution.success' || eventType === 'execution.failed' || eventType === 'execution.stopped';
+  return (
+    eventType === EventType.ExecutionSuccess || 
+    eventType === EventType.ExecutionFailed || 
+    eventType === EventType.ExecutionStopped
+  );
 }
 
 export interface SessionSubscription {
@@ -187,7 +192,9 @@ export class ConnectionManager {
               if (!data) {
                 return;
               }
-              const sessionId = (data as RunEventEnvelope['data']).payload?.session_id as string | undefined;
+              // Extract session_id - it's always present in payload
+              const payload = (data as any).payload;
+              const sessionId = payload?.session_id as string | undefined;
               if (!sessionId) {
                 return;
               }
@@ -197,13 +204,18 @@ export class ConnectionManager {
                 return;
               }
 
-              const msg: SseMessage = { event: 'run.event', data };
+              const msg: SseMessage = { 
+                event: 'run.event', 
+                data: data as RunEventEnvelope['data'],
+                timestamp: (raw as any).timestamp || new Date().toISOString(),
+                expires_at: (raw as any).expires_at || new Date(Date.now() + 3600000).toISOString()
+              };
 
               // fan-out to all subscribers
               for (const q of channel.subscribers) q.push(msg);
               channel.emitter.emit('run.event', msg);
 
-              const eventType = data.event as string | undefined;
+              const eventType = data.event as EventType | string | undefined;
               if (isFinalEvent(eventType)) {
                 channel.ended = true;
                 channel.emitter.emit('end', { type: eventType as EventType });

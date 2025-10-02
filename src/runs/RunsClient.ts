@@ -1,14 +1,14 @@
 import type {
   StartRunRequest,
   UserInteractionData,
-  RunResult,
   GetRunResult,
   WebhookReplayResponse,
   RunHandle,
   RunStreamOptions,
   SseMessage,
-  EventType
+  RunHandleEventMap,
 } from './types.js';
+import { EventType } from '../events/types.js';
 import { AsyncEventQueue } from '../utils/asyncQueue.js';
 import { SimpleEventEmitter } from '../utils/events.js';
 import { ConnectionManager } from '../utils/connectionManager.js';
@@ -64,7 +64,7 @@ export class RunsClient {
    * Subscribes to SSE events for a given session. Returns a handle with helpers.
    */
   subscribeToSession(sessionId: string, options?: RunStreamOptions): RunHandle {
-    const emitter = new SimpleEventEmitter();
+    const emitter = new SimpleEventEmitter<RunHandleEventMap>();
     const stream = new AsyncEventQueue<SseMessage>();
 
     let ended = false;
@@ -77,13 +77,15 @@ export class RunsClient {
     };
 
     const isTerminalEvent = (status?: string | null): status is EventType =>
-      status === 'execution.success' || status === 'execution.failed' || status === 'execution.stopped';
+      status === EventType.ExecutionSuccess || 
+      status === EventType.ExecutionFailed || 
+      status === EventType.ExecutionStopped;
 
-    const emit = (event: string, payload?: unknown) => {
+    const emit = <K extends keyof RunHandleEventMap>(event: K, payload: RunHandleEventMap[K]) => {
       emitter.emit(event, payload);
       // Mirror only SSE messages to 'message' for catch-all consumers
       if (event === 'run.event' || event === 'ping') {
-        emitter.emit('message', payload);
+        emitter.emit('message', payload as RunHandleEventMap['message']);
       }
     };
 
@@ -102,12 +104,15 @@ export class RunsClient {
 
       const s = sub!;
       s.on('open', () => emit('open', undefined));
-      s.on('ping', (evt) => emit('ping', evt));
+      s.on('ping', (evt) => emit('ping', evt as RunHandleEventMap['ping']));
       s.on('run.event', (msg: unknown) => {
         const sseMsg = msg as SseMessage;
         if (sseMsg.event !== 'run.event') return;
         stream.push(sseMsg);
         emit('run.event', sseMsg);
+
+        // Emit typed per-event key for better DX
+        try { (emitter as unknown as { emit: (k: keyof RunHandleEventMap, v: any) => void }).emit(sseMsg.data.event as keyof RunHandleEventMap, sseMsg); } catch {}
 
         const eventType = sseMsg.data.event;
         if (typeof eventType === 'string' && isTerminalEvent(eventType)) {
@@ -135,14 +140,14 @@ export class RunsClient {
           }
         })();
       });
-      s.on('reconnect', (e) => emit('reconnect', e));
+      s.on('reconnect', (e) => emit('reconnect', e as { attemptDelayMs: number }));
       s.on('end', (e: unknown) => {
         const t = (e as { type?: EventType | string } | undefined)?.type;
         if (t && typeof t === 'string' && isTerminalEvent(t)) {
           endAndCleanup(t);
         } else {
           // End without explicit type; still clean up
-          endAndCleanup('execution.stopped');
+          endAndCleanup(EventType.ExecutionStopped);
         }
       });
     };
@@ -152,7 +157,7 @@ export class RunsClient {
     const client = this;
     const handle: RunHandle = {
       sessionId,
-      on: (event, handler) => emitter.on(event as string, handler),
+      on: (event, handler) => emitter.on(event, handler),
       async wait(): Promise<GetRunResult> {
         if (ended) {
           return await client.getResults(sessionId);
