@@ -193,6 +193,10 @@ export interface RunStreamOptions {
 }
 
 // Event handler types for RunHandle
+export type RunEventMap = {
+  [K in EventType]: RunEventEnvelope<K>;
+};
+
 export type RunHandleEventMap = {
   'open': undefined;
   'close': undefined;
@@ -202,7 +206,7 @@ export type RunHandleEventMap = {
   'run.event': SseMessage;
   'ping': PingEnvelope;
   'message': SseMessage | PingEnvelope;
-};
+} & RunEventMap;
 
 export interface RunHandle {
   sessionId: string;

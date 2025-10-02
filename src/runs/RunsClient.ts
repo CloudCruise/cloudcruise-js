@@ -111,6 +111,9 @@ export class RunsClient {
         stream.push(sseMsg);
         emit('run.event', sseMsg);
 
+        // Emit typed per-event key for better DX
+        try { (emitter as unknown as { emit: (k: keyof RunHandleEventMap, v: any) => void }).emit(sseMsg.data.event as keyof RunHandleEventMap, sseMsg); } catch {}
+
         const eventType = sseMsg.data.event;
         if (typeof eventType === 'string' && isTerminalEvent(eventType)) {
           endAndCleanup(eventType);
