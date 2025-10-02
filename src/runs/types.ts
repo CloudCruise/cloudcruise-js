@@ -2,21 +2,43 @@
  * CloudCruise Runs API Type Definitions
  */
 
-export type EventType =
-  | 'execution.queued'
-  | 'execution.start'
-  | 'execution.step'
-  | 'execution.pause'
-  | 'execution.stopped'
-  | 'execution.failed'
-  | 'execution.success'
-  | 'execution.requeued'
-  | 'file.uploaded'
-  | 'screenshot.uploaded'
-  | 'video.uploaded'
-  | 'interaction.waiting'
-  | 'interaction.finished'
-  | 'interaction.failed';
+import type {
+  EventType,
+  RunEventMessage,
+  EventPayloadMap,
+  ExecutionQueuedPayload,
+  ExecutionStartPayload,
+  ExecutionStepPayload,
+  InteractionWaitingPayload,
+  InteractionFinishedPayload,
+  AgentErrorAnalysisPayload,
+  ExecutionRequeuedPayload,
+  EndRunPayload,
+  EndRunError,
+  ExecutionStoppedEarlyPayload,
+  FileUploadedPayload,
+  ScreenshotUploadedPayload,
+} from '../events/types.js';
+
+// Re-export EventType for convenience
+export type { EventType };
+
+// Re-export payload types
+export type {
+  ExecutionQueuedPayload,
+  ExecutionStartPayload,
+  ExecutionStepPayload,
+  InteractionWaitingPayload,
+  InteractionFinishedPayload,
+  AgentErrorAnalysisPayload,
+  ExecutionRequeuedPayload,
+  EndRunPayload,
+  EndRunError,
+  ExecutionStoppedEarlyPayload,
+  FileUploadedPayload,
+  ScreenshotUploadedPayload,
+  EventPayloadMap,
+};
 
 export interface DryRun {
   enabled: boolean;
@@ -149,24 +171,15 @@ export interface WebhookReplayResponse {
  */
 export type SseEventName = 'run.event' | 'ping';
 
-export interface RunEventEnvelope {
-  event: 'run.event';
-  data: {
-    event: EventType | string;
-    payload: { session_id: string; [key: string]: any };
-    expires_at: number;
-    timestamp: number;
-  };
-  timestamp?: string;
-  expires_at?: string;
-}
+// Generic RunEventEnvelope using shared types
+export type RunEventEnvelope<E extends EventType = EventType> = RunEventMessage<E>;
 
 export interface PingEnvelope {
   event: 'ping';
   data: { ts: number } | Record<string, any>;
 }
 
-export type SseMessage = RunEventEnvelope | PingEnvelope;
+export type SseMessage<E extends EventType = EventType> = RunEventEnvelope<E> | PingEnvelope;
 
 export interface RunStreamOptions {
   signal?: AbortSignal;
@@ -179,11 +192,23 @@ export interface RunStreamOptions {
   };
 }
 
+// Event handler types for RunHandle
+export type RunHandleEventMap = {
+  'open': undefined;
+  'close': undefined;
+  'reconnect': { attemptDelayMs: number };
+  'error': unknown;
+  'end': { type: EventType };
+  'run.event': SseMessage;
+  'ping': PingEnvelope;
+  'message': SseMessage | PingEnvelope;
+};
+
 export interface RunHandle {
   sessionId: string;
-  on(
-    event: 'open' | 'reconnect' | 'error' | 'end' | SseEventName | 'message',
-    handler: (e: unknown) => void
+  on<K extends keyof RunHandleEventMap>(
+    event: K,
+    handler: (e: RunHandleEventMap[K]) => void
   ): () => void;
   wait(): Promise<GetRunResult>;
   close(): void;

@@ -1,10 +1,6 @@
 import crypto from 'crypto';
-import {
-  VerificationError,
-  WebhookEventType,
-  type WebhookPayload,
-  type WebhookVerificationOptions
-} from './types.js';
+import type { EventType, WebhookMessage } from '../events/types.js';
+import { VerificationError, type WebhookVerificationOptions } from './types.js';
 
 function verifyHmac(
   receivedData: string,
@@ -27,12 +23,12 @@ function verifyHmac(
   );
 }
 
-export function verifyMessage<E extends WebhookEventType = WebhookEventType>(
+export function verifyMessage<E extends EventType = EventType>(
   receivedData: any,
   receivedSignature: string,
   secretKey: string,
   options?: WebhookVerificationOptions
-): WebhookPayload<E> {
+): WebhookMessage<E> {
   if (!receivedData) {
     throw new VerificationError("Received request without body", 400);
   }
@@ -45,7 +41,7 @@ export function verifyMessage<E extends WebhookEventType = WebhookEventType>(
     throw new VerificationError("Missing secret key", 400);
   }
 
-  let dataJson: WebhookPayload<E>;
+  let dataJson: WebhookMessage<E>;
   let dataString: string;
 
   if (typeof receivedData === 'string') {

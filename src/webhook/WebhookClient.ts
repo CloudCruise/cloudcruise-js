@@ -1,5 +1,6 @@
 import { verifyMessage } from './utils.js';
-import type { WebhookEventType, WebhookPayload, WebhookVerificationOptions } from './types.js';
+import type { WebhookVerificationOptions } from './types.js';
+import type { EventType, WebhookMessage } from '../events/types.js';
 
 export class WebhookClient {
   constructor() {
@@ -15,12 +16,12 @@ export class WebhookClient {
    * @param options - Optional overrides controlling signature verification behavior.
    * @returns Verified webhook payload when the signature matches.
    */
-  verifySignature<E extends WebhookEventType = WebhookEventType>(
+  verifySignature<E extends EventType = EventType>(
     receivedData: any,
     receivedSignature: string,
     secretKey: string,
     options?: WebhookVerificationOptions
-  ): WebhookPayload<E> {
+  ): WebhookMessage<E> {
     return verifyMessage<E>(receivedData, receivedSignature, secretKey, options);
   }
 }

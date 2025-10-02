@@ -25,7 +25,6 @@ export type {
 } from './workflows/types.js';
 
 export type {
-  EventType,
   DryRun,
   Metadata,
   RunSpecificWebhook,
@@ -46,14 +45,17 @@ export type {
   RunStreamOptions,
   SseEventName,
   SseMessage,
-  RunEventEnvelope
+  RunEventEnvelope,
+  RunHandleEventMap
 } from './runs/types.js';
 
-export { WebhookEventType } from './webhook/types.js';
+// Export shared event types
+export { EventType } from './events/types.js';
 export type {
-  WebhookPayload,
-  WebhookVerificationOptions
-} from './webhook/types.js';
+  WebhookMessage,
+  RunEventMessage
+} from './events/types.js';
 
+export type { WebhookVerificationOptions } from './webhook/types.js';
 export { VerificationError } from './webhook/types.js';
 export { InputValidationError } from './workflows/types.js';
