@@ -124,6 +124,8 @@ export interface WorkflowError {
   error_code?: string | null;
   action_type?: string | null;
   action_display_name?: string | null;
+  llm_error_category?: string | null;
+  original_error?: string | null;
 }
 
 export interface RunResult {
