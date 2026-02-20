@@ -99,9 +99,13 @@ export interface EndRunPayload {
   data: any;
   input_variables: Record<string, any>;
   errors: EndRunError[];
-  status: EventType.ExecutionSuccess | EventType.ExecutionFailed | EventType.ExecutionStopped;
+  status:
+    | EventType.ExecutionSuccess
+    | EventType.ExecutionFailed
+    | EventType.ExecutionStopped;
   encrypted_variables: string[] | null;
   file_urls: any[] | null;
+  vault_entries: Record<string, any> | null;
 }
 
 export interface ExecutionStoppedEarlyPayload {
@@ -172,4 +176,3 @@ export type RunEventMessage<E extends EventType = EventType> = {
   timestamp: string;
   expires_at: string;
 };
-
