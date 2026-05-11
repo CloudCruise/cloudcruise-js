@@ -5,10 +5,50 @@ import { RunsClient } from './runs/RunsClient.js';
 import { WebhookClient } from './webhook/WebhookClient.js';
 import { ConnectionManager } from './utils/connectionManager.js';
 
+const DEFAULT_BASE_URL = 'https://api.cloudcruise.com';
+const DEFAULT_API_HOST = new URL(DEFAULT_BASE_URL).host.toLowerCase();
+
 export interface CloudCruiseParams {
   apiKey?: string;
+  /**
+   * CloudCruise API base URL. Authenticated requests are restricted to the
+   * production CloudCruise API origin.
+   */
   baseUrl?: string;
   encryptionKey?: string;
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    throw new Error(`Invalid baseUrl: ${baseUrl}`);
+  }
+
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error(`Invalid baseUrl protocol: ${url.protocol}. Use https: or http:.`);
+  }
+
+  url.search = '';
+  url.hash = '';
+  return url.toString().replace(/\/+$/, '');
+}
+
+function assertBaseUrlAllowed(baseUrl: string): void {
+  const url = new URL(baseUrl);
+  const host = url.host.toLowerCase();
+
+  if (host === DEFAULT_API_HOST && url.protocol !== 'https:') {
+    throw new Error(`Refusing to send CloudCruise API key to "${baseUrl}". The default CloudCruise API host requires https:.`);
+  }
+
+  if (baseUrl !== DEFAULT_BASE_URL) {
+    throw new Error(
+      `Refusing to send CloudCruise API key to unapproved baseUrl "${baseUrl}". ` +
+      `Authenticated requests are restricted to ${DEFAULT_BASE_URL}.`
+    );
+  }
 }
 
 export class CloudCruise {
@@ -24,7 +64,7 @@ export class CloudCruise {
 
   constructor(params?: CloudCruiseParams) {
     const apiKey = params?.apiKey ?? getEnv('CLOUDCRUISE_API_KEY');
-    const baseUrl = params?.baseUrl ?? getEnv('CLOUDCRUISE_BASE_URL') ?? 'https://api.cloudcruise.com';
+    const baseUrl = params?.baseUrl ?? getEnv('CLOUDCRUISE_BASE_URL') ?? DEFAULT_BASE_URL;
     const encryptionKey = params?.encryptionKey ?? getEnv('CLOUDCRUISE_ENCRYPTION_KEY');
 
     if (!apiKey) {
@@ -34,8 +74,11 @@ export class CloudCruise {
       throw new Error('Missing encryptionKey. Provide via params.encryptionKey or CLOUDCRUISE_ENCRYPTION_KEY env var.');
     }
 
+    const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+    assertBaseUrlAllowed(normalizedBaseUrl);
+
     this.apiKey = apiKey;
-    this.baseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash
+    this.baseUrl = normalizedBaseUrl;
     this.encryptionKey = encryptionKey;
     
     // Initialize namespace clients
