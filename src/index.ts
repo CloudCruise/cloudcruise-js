@@ -53,7 +53,15 @@ export type {
 export { EventType } from './events/types.js';
 export type {
   WebhookMessage,
-  RunEventMessage
+  RunEventMessage,
+  // Modal recovery types (execution.input_required event family)
+  AvailableAction,
+  PopupRetry,
+  PopupContext,
+  InputRequiredReason,
+  ExecutionInputRequiredPayload,
+  // Existing payloads worth surfacing
+  AgentErrorAnalysisPayload
 } from './events/types.js';
 
 export type { WebhookVerificationOptions } from './webhook/types.js';

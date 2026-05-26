@@ -9,6 +9,7 @@ import type {
   RunHandleEventMap,
 } from './types.js';
 import { EventType } from '../events/types.js';
+import type { PopupContext, ExecutionInputRequiredPayload } from '../events/types.js';
 import { AsyncEventQueue } from '../utils/asyncQueue.js';
 import { SimpleEventEmitter } from '../utils/events.js';
 import { ConnectionManager } from '../utils/connectionManager.js';
@@ -202,6 +203,120 @@ export class RunsClient {
   async submitUserInteraction(sessionId: string, data: UserInteractionData): Promise<void> {
     const path = `/run/${sessionId}/user_interaction`;
     await this.makeRequest<void>('POST', path, data);
+  }
+
+  /**
+   * Responds to an execution.input_required event whose reason is
+   * "non_dismissible_popup" by picking one of the CTA buttons surfaced in
+   * popup_context.available_actions. The backend dispatches a synthetic
+   * click on the chosen button and resumes the workflow.
+   *
+   * Only valid while the session is waiting for input. The backing endpoint
+   * returns 400 if the wait already expired (the workspace setting
+   * input_required_timeout_seconds, default 15s, max 300s).
+   *
+   * @param sessionId - The session waiting for input.
+   * @param actionId - One of the ids in popup_context.available_actions.
+   */
+  async submitModalAction(sessionId: string, actionId: string): Promise<void> {
+    const path = `/run/${sessionId}/new_input_variables`;
+    await this.makeRequest<void>('POST', path, { modal_action: actionId });
+  }
+
+  /**
+   * Responds to an execution.input_required event whose reason is
+   * "input_required", "incorrect_form_input", or "multiple_matching_results"
+   * by supplying the corrected/required input variables. Backend resumes from
+   * the appropriate recovery node with the new values substituted in.
+   *
+   * Mutually exclusive with submitModalAction at the endpoint level.
+   *
+   * @param sessionId - The session waiting for input.
+   * @param inputVariables - Mapping of variable name to new value.
+   */
+  async submitInputVariables(sessionId: string, inputVariables: Record<string, any>): Promise<void> {
+    const path = `/run/${sessionId}/new_input_variables`;
+    await this.makeRequest<void>('POST', path, { input_variables: inputVariables });
+  }
+
+  /**
+   * Registers a listener that auto-responds ONLY to non-dismissible modal
+   * input_required events (reason === "non_dismissible_popup"). The decider
+   * receives the popup_context and must return one of the action ids in
+   * popup_context.available_actions.
+   *
+   * The SDK never picks an action on its own. The customer's decider IS the
+   * decision point. If decider throws, the listener swallows it and skips
+   * submission; the backend's input wait will time out naturally.
+   *
+   * Other input_required reasons (incorrect_form_input, etc.) are ignored
+   * here and should be routed to onInputVariablesRequired.
+   *
+   * @returns An unsubscribe callable.
+   */
+  onPopupDecisionRequired(
+    handle: RunHandle,
+    decider: (ctx: PopupContext) => string | Promise<string>,
+  ): () => void {
+    const listener = async (event: any) => {
+      try {
+        const payload = (event && event.payload) as ExecutionInputRequiredPayload | undefined;
+        if (!payload || payload.reason !== 'non_dismissible_popup' || !payload.popup_context) {
+          return;
+        }
+        const actionId = await decider(payload.popup_context);
+        if (typeof actionId !== 'string' || actionId.length === 0) {
+          return;
+        }
+        const sid = payload.session_id || handle.sessionId;
+        await this.submitModalAction(sid, actionId);
+      } catch {
+        // Decider or submission failed; let backend timeout the wait.
+        return;
+      }
+    };
+    const unsubscribe = handle.on(EventType.ExecutionInputRequired, listener as any);
+    return typeof unsubscribe === 'function' ? unsubscribe : () => {};
+  }
+
+  /**
+   * Registers a listener that auto-responds ONLY to workflow-variable
+   * input_required events (reason in {"input_required",
+   * "incorrect_form_input", "multiple_matching_results"}). The decider
+   * receives the full payload and must return the input_variables dict.
+   *
+   * Counterpart to onPopupDecisionRequired. Modal events
+   * (reason === "non_dismissible_popup") are routed there and ignored here.
+   *
+   * @returns An unsubscribe callable.
+   */
+  onInputVariablesRequired(
+    handle: RunHandle,
+    decider: (payload: ExecutionInputRequiredPayload) => Record<string, any> | Promise<Record<string, any>>,
+  ): () => void {
+    const VARIABLE_REASONS = new Set([
+      'input_required',
+      'incorrect_form_input',
+      'multiple_matching_results',
+    ]);
+    const listener = async (event: any) => {
+      try {
+        const payload = (event && event.payload) as ExecutionInputRequiredPayload | undefined;
+        if (!payload || !payload.reason || !VARIABLE_REASONS.has(payload.reason)) {
+          return;
+        }
+        const inputVars = await decider(payload);
+        if (!inputVars || typeof inputVars !== 'object') {
+          return;
+        }
+        const sid = payload.session_id || handle.sessionId;
+        await this.submitInputVariables(sid, inputVars);
+      } catch {
+        return;
+      }
+    };
+    const unsubscribe = handle.on(EventType.ExecutionInputRequired, listener as any);
+    return typeof unsubscribe === 'function' ? unsubscribe : () => {};
   }
 
   /**
