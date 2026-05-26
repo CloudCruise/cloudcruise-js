@@ -33,6 +33,19 @@ function defaultRecoverySubmitErrorLog(operation: string): (err: unknown) => voi
   };
 }
 
+/**
+ * Helper for `verbose: true` mode on the recovery helpers. Writes a single
+ * line to console.error so customers can watch the recovery loop without
+ * instrumenting their own decider.
+ */
+function verboseLog(operation: string, message: string): void {
+  try {
+    console.error(`[CloudCruise SDK verbose] ${operation}: ${message}`);
+  } catch {
+    // never throw
+  }
+}
+
 export class RunsClient {
   private readonly makeRequest: <T = any>(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE',
@@ -276,7 +289,9 @@ export class RunsClient {
     handle: RunHandle,
     decider: (ctx: PopupContext) => string | Promise<string>,
     onError?: (err: unknown) => void,
+    options?: { verbose?: boolean },
   ): () => void {
+    const verbose = options?.verbose === true;
     const reportError = (err: unknown) => {
       const reporter = onError ?? defaultRecoverySubmitErrorLog('submitModalAction');
       try {
@@ -285,33 +300,44 @@ export class RunsClient {
         // defense: a buggy onError must not crash the event loop
       }
     };
+    if (verbose) verboseLog('onPopupDecisionRequired', 'listener registered');
     const listener = async (event: any) => {
-      // Greptile P1: real SSE delivery nests the payload under event.data.payload.
       const payload = (event?.data?.payload ?? event?.payload) as
         | ExecutionInputRequiredPayload
         | undefined;
       if (!payload || payload.reason !== 'non_dismissible_popup' || !payload.popup_context) {
+        if (verbose) {
+          verboseLog('onPopupDecisionRequired', `skipping reason=${payload?.reason ?? 'undefined'}`);
+        }
         return;
       }
 
-      // Decider exceptions are customer business logic — swallow.
+      if (verbose) {
+        const attempt = payload.popup_context.retry?.attempt;
+        const actions = payload.popup_context.available_actions?.map((a) => a.id) ?? [];
+        verboseLog(
+          'onPopupDecisionRequired',
+          `event received attempt=${attempt} actions=${JSON.stringify(actions)}`,
+        );
+      }
+
       let actionId: string;
       try {
         actionId = await decider(payload.popup_context);
-      } catch {
+      } catch (e) {
+        if (verbose) verboseLog('onPopupDecisionRequired', `decider raised: ${e}`);
         return;
       }
       if (typeof actionId !== 'string' || actionId.length === 0) {
+        if (verbose) verboseLog('onPopupDecisionRequired', `decider returned non-string/empty (${JSON.stringify(actionId)}); skipping`);
         return;
       }
 
-      // Greptile v2: SimpleEventEmitter.emit calls handlers synchronously
-      // and ignores async returns, so unhandled rejections from this await
-      // would silently disappear. Route through onError / console.error
-      // so customers observe the failure instead of timing out blind.
       const sid = payload.session_id || handle.sessionId;
+      if (verbose) verboseLog('onPopupDecisionRequired', `submitting modal_action=${JSON.stringify(actionId)} for session=${sid}`);
       try {
         await this.submitModalAction(sid, actionId);
+        if (verbose) verboseLog('onPopupDecisionRequired', `submit ok for action=${JSON.stringify(actionId)}`);
       } catch (err) {
         reportError(err);
       }
@@ -335,7 +361,9 @@ export class RunsClient {
     handle: RunHandle,
     decider: (payload: ExecutionInputRequiredPayload) => Record<string, any> | Promise<Record<string, any>>,
     onError?: (err: unknown) => void,
+    options?: { verbose?: boolean },
   ): () => void {
+    const verbose = options?.verbose === true;
     const VARIABLE_REASONS = new Set([
       'input_required',
       'incorrect_form_input',
@@ -349,29 +377,35 @@ export class RunsClient {
         // defense
       }
     };
+    if (verbose) verboseLog('onInputVariablesRequired', 'listener registered');
     const listener = async (event: any) => {
       const payload = (event?.data?.payload ?? event?.payload) as
         | ExecutionInputRequiredPayload
         | undefined;
       if (!payload || !payload.reason || !VARIABLE_REASONS.has(payload.reason)) {
+        if (verbose) verboseLog('onInputVariablesRequired', `skipping reason=${payload?.reason ?? 'undefined'}`);
         return;
       }
+
+      if (verbose) verboseLog('onInputVariablesRequired', `event received reason=${payload.reason}`);
 
       let inputVars: Record<string, any>;
       try {
         inputVars = await decider(payload);
-      } catch {
+      } catch (e) {
+        if (verbose) verboseLog('onInputVariablesRequired', `decider raised: ${e}`);
         return;
       }
       if (!inputVars || typeof inputVars !== 'object' || Array.isArray(inputVars)) {
+        if (verbose) verboseLog('onInputVariablesRequired', `decider returned non-object (${Array.isArray(inputVars) ? 'array' : typeof inputVars}); skipping`);
         return;
       }
 
-      // Greptile v2: route submit errors through onError so they don't
-      // become unhandled rejections in the synchronous emitter loop.
       const sid = payload.session_id || handle.sessionId;
+      if (verbose) verboseLog('onInputVariablesRequired', `submitting input_variables keys=${JSON.stringify(Object.keys(inputVars))} for session=${sid}`);
       try {
         await this.submitInputVariables(sid, inputVars);
+        if (verbose) verboseLog('onInputVariablesRequired', 'submit ok');
       } catch (err) {
         reportError(err);
       }

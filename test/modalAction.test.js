@@ -646,3 +646,68 @@ test('onInputVariablesRequired rejects array decider returns (P2)', async () => 
 
   assert.equal(calls.length, 0);
 });
+
+
+test('verbose mode logs lifecycle to console.error', async () => {
+  const { client, calls } = makeClient();
+  const original = console.error;
+  const logs = [];
+  console.error = (...args) => logs.push(args.map(String).join(' '));
+  try {
+    const registered = {};
+    client.onPopupDecisionRequired(
+      { sessionId: 'sess-vb', on(e, h) { registered[e] = h; return () => {}; } },
+      () => 'yes',
+      undefined,
+      { verbose: true },
+    );
+    await registered[EventType.ExecutionInputRequired]({
+      payload: {
+        session_id: 'sess-vb', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null,
+        popup_context: {
+          error_description: 'x', error_sub_type: 'NON_DISMISSIBLE', full_url: 'x',
+          available_actions: [{ id: 'yes', label: 'Yes' }, { id: 'no', label: 'No' }],
+          retry: { attempt: 2, max_attempts: 3 },
+        },
+      },
+    });
+  } finally {
+    console.error = original;
+  }
+
+  const all = logs.join('\n');
+  assert.match(all, /listener registered/);
+  assert.match(all, /attempt=2/);
+  assert.match(all, /actions=\["yes","no"\]/);
+  assert.match(all, /submitting modal_action="yes"/);
+  assert.match(all, /submit ok/);
+});
+
+test('verbose mode off by default writes no [verbose] lines', async () => {
+  const { client, calls } = makeClient();
+  const original = console.error;
+  const logs = [];
+  console.error = (...args) => logs.push(args.map(String).join(' '));
+  try {
+    const registered = {};
+    client.onPopupDecisionRequired(
+      { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+      () => 'yes',
+    );
+    await registered[EventType.ExecutionInputRequired]({
+      payload: {
+        session_id: 's', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null,
+        popup_context: {
+          error_description: 'x', error_sub_type: 'NON_DISMISSIBLE', full_url: 'x',
+          available_actions: [{ id: 'yes', label: 'Yes' }],
+          retry: { attempt: 1, max_attempts: 3 },
+        },
+      },
+    });
+  } finally {
+    console.error = original;
+  }
+
+  const all = logs.join('\n');
+  assert.equal(all.includes('[CloudCruise SDK verbose]'), false);
+});
