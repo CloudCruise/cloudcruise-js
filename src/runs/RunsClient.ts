@@ -259,21 +259,33 @@ export class RunsClient {
     decider: (ctx: PopupContext) => string | Promise<string>,
   ): () => void {
     const listener = async (event: any) => {
-      try {
-        const payload = (event && event.payload) as ExecutionInputRequiredPayload | undefined;
-        if (!payload || payload.reason !== 'non_dismissible_popup' || !payload.popup_context) {
-          return;
-        }
-        const actionId = await decider(payload.popup_context);
-        if (typeof actionId !== 'string' || actionId.length === 0) {
-          return;
-        }
-        const sid = payload.session_id || handle.sessionId;
-        await this.submitModalAction(sid, actionId);
-      } catch {
-        // Decider or submission failed; let backend timeout the wait.
+      // Greptile P1: real SSE delivery nests the payload under event.data.payload.
+      // Tolerate both shapes so the helper works for both SSE and flat webhook
+      // consumers.
+      const payload = (event?.data?.payload ?? event?.payload) as
+        | ExecutionInputRequiredPayload
+        | undefined;
+      if (!payload || payload.reason !== 'non_dismissible_popup' || !payload.popup_context) {
         return;
       }
+
+      // Decider exceptions are customer business logic — swallow so a buggy
+      // decider does not crash the event loop.
+      let actionId: string;
+      try {
+        actionId = await decider(payload.popup_context);
+      } catch {
+        return;
+      }
+      if (typeof actionId !== 'string' || actionId.length === 0) {
+        return;
+      }
+
+      // Submission failures (invalid action, wait expired, backend 4xx/5xx)
+      // are NOT swallowed. Greptile P1: silent swallow made "registered but
+      // ineffective" the failure mode. Let it propagate to the consumer.
+      const sid = payload.session_id || handle.sessionId;
+      await this.submitModalAction(sid, actionId);
     };
     const unsubscribe = handle.on(EventType.ExecutionInputRequired, listener as any);
     return typeof unsubscribe === 'function' ? unsubscribe : () => {};
@@ -300,20 +312,29 @@ export class RunsClient {
       'multiple_matching_results',
     ]);
     const listener = async (event: any) => {
+      // Greptile P1: read from SSE envelope (data.payload) with fallback to flat.
+      const payload = (event?.data?.payload ?? event?.payload) as
+        | ExecutionInputRequiredPayload
+        | undefined;
+      if (!payload || !payload.reason || !VARIABLE_REASONS.has(payload.reason)) {
+        return;
+      }
+
+      let inputVars: Record<string, any>;
       try {
-        const payload = (event && event.payload) as ExecutionInputRequiredPayload | undefined;
-        if (!payload || !payload.reason || !VARIABLE_REASONS.has(payload.reason)) {
-          return;
-        }
-        const inputVars = await decider(payload);
-        if (!inputVars || typeof inputVars !== 'object') {
-          return;
-        }
-        const sid = payload.session_id || handle.sessionId;
-        await this.submitInputVariables(sid, inputVars);
+        inputVars = await decider(payload);
       } catch {
         return;
       }
+      // Greptile P2: `typeof []` is `object`, so plain arrays slip through.
+      // Reject explicitly to match the endpoint contract (key/value dict).
+      if (!inputVars || typeof inputVars !== 'object' || Array.isArray(inputVars)) {
+        return;
+      }
+
+      // Submission failures propagate (Greptile P1).
+      const sid = payload.session_id || handle.sessionId;
+      await this.submitInputVariables(sid, inputVars);
     };
     const unsubscribe = handle.on(EventType.ExecutionInputRequired, listener as any);
     return typeof unsubscribe === 'function' ? unsubscribe : () => {};

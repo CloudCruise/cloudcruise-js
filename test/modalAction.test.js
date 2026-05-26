@@ -438,3 +438,128 @@ test('multiple modals fire back-to-back; each processed independently', async ()
   assert.equal(calls.length, 3);
   assert.deepEqual(calls.map((c) => c.body.modal_action), ['proceed', 'yes', 'acknowledge']);
 });
+
+
+// === Greptile P1/P2 fixes: SSE envelope shape, submit errors propagate, array reject ===
+
+test('onPopupDecisionRequired reads event.data.payload (real SSE envelope)', async () => {
+  const { client, calls } = makeClient();
+  const registered = {};
+  client.onPopupDecisionRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    () => 'yes',
+  );
+
+  // Real SSE shape: { event, data: { event, payload, timestamp, expires_at } }
+  await registered[EventType.ExecutionInputRequired]({
+    event: 'execution.input_required',
+    data: {
+      event: 'execution.input_required',
+      payload: {
+        session_id: 's', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null,
+        popup_context: {
+          error_description: 'x', error_sub_type: 'NON_DISMISSIBLE', full_url: 'x',
+          available_actions: [{ id: 'yes', label: 'Yes' }],
+          retry: { attempt: 1, max_attempts: 3 },
+        },
+      },
+      timestamp: 1, expires_at: 2,
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].body, { modal_action: 'yes' });
+});
+
+test('onInputVariablesRequired reads event.data.payload (real SSE envelope)', async () => {
+  const { client, calls } = makeClient();
+  const registered = {};
+  client.onInputVariablesRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    () => ({ MEMBER_ID: 'X' }),
+  );
+
+  await registered[EventType.ExecutionInputRequired]({
+    event: 'execution.input_required',
+    data: {
+      event: 'execution.input_required',
+      payload: { session_id: 's', reason: 'input_required', input_variables: {}, screenshot_url: null },
+      timestamp: 1, expires_at: 2,
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].body, { input_variables: { MEMBER_ID: 'X' } });
+});
+
+test('onPopupDecisionRequired propagates submitModalAction errors (no silent swallow)', async () => {
+  // Make _make_request equivalent reject so submitModalAction throws.
+  const calls = [];
+  const failingRequest = async () => { throw new Error('backend 400: wait expired'); };
+  const stubConnectionManager = { subscribe: () => ({ close: () => {} }) };
+  const { RunsClient } = await import('../dist/index.js');
+  const client = new RunsClient(stubConnectionManager, failingRequest);
+
+  const registered = {};
+  client.onPopupDecisionRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    () => 'yes',
+  );
+
+  let caught = null;
+  try {
+    await registered[EventType.ExecutionInputRequired]({
+      payload: {
+        session_id: 's', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null,
+        popup_context: {
+          error_description: 'x', error_sub_type: 'NON_DISMISSIBLE', full_url: 'x',
+          available_actions: [{ id: 'yes', label: 'Yes' }],
+          retry: { attempt: 1, max_attempts: 3 },
+        },
+      },
+    });
+  } catch (e) {
+    caught = e;
+  }
+  assert.ok(caught, 'Expected submitModalAction error to propagate, but it was swallowed');
+  assert.match(caught.message, /wait expired/);
+});
+
+test('onInputVariablesRequired propagates submitInputVariables errors', async () => {
+  const failingRequest = async () => { throw new Error('backend 500'); };
+  const stubConnectionManager = { subscribe: () => ({ close: () => {} }) };
+  const { RunsClient } = await import('../dist/index.js');
+  const client = new RunsClient(stubConnectionManager, failingRequest);
+
+  const registered = {};
+  client.onInputVariablesRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    () => ({ X: 1 }),
+  );
+
+  let caught = null;
+  try {
+    await registered[EventType.ExecutionInputRequired]({
+      payload: { session_id: 's', reason: 'incorrect_form_input', input_variables: {}, screenshot_url: null },
+    });
+  } catch (e) {
+    caught = e;
+  }
+  assert.ok(caught);
+  assert.match(caught.message, /backend 500/);
+});
+
+test('onInputVariablesRequired rejects array decider returns (P2)', async () => {
+  const { client, calls } = makeClient();
+  const registered = {};
+  client.onInputVariablesRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    () => [],  // Array — would silently get accepted as `typeof === 'object'`
+  );
+
+  await registered[EventType.ExecutionInputRequired]({
+    payload: { session_id: 's', reason: 'input_required', input_variables: {}, screenshot_url: null },
+  });
+
+  assert.equal(calls.length, 0);
+});
