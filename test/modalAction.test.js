@@ -233,3 +233,208 @@ test('retry.attempt is visible to decider for branching', async () => {
   assert.deepEqual(calls[0].body, { modal_action: 'yes' });
   assert.deepEqual(calls[1].body, { modal_action: 'no' });
 });
+
+
+// === Gap coverage: edge cases on payload shape, async deciders, unsubscribe ===
+
+test('onPopupDecisionRequired handles missing popup_context without raising', async () => {
+  const { client, calls } = makeClient();
+  const registered = {};
+  client.onPopupDecisionRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    (ctx) => 'yes',
+  );
+
+  // popup_context absent entirely
+  await registered[EventType.ExecutionInputRequired]({
+    payload: { session_id: 's', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null },
+  });
+  // popup_context is null
+  await registered[EventType.ExecutionInputRequired]({
+    payload: { session_id: 's', reason: 'non_dismissible_popup', popup_context: null, input_variables: {}, screenshot_url: null },
+  });
+
+  assert.equal(calls.length, 0);
+});
+
+test('onPopupDecisionRequired skips on non-string / empty decider return', async () => {
+  const { client, calls } = makeClient();
+  const registered = {};
+  const returns = ['', null, undefined, 42, [], { id: 'yes' }];
+  let idx = 0;
+  client.onPopupDecisionRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    () => returns[idx++],
+  );
+
+  for (let i = 0; i < returns.length; i++) {
+    await registered[EventType.ExecutionInputRequired]({
+      payload: {
+        session_id: 's', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null,
+        popup_context: {
+          error_description: 'x', error_sub_type: 'NON_DISMISSIBLE', full_url: 'x',
+          available_actions: [{ id: 'yes', label: 'Yes' }],
+          retry: { attempt: 1, max_attempts: 3 },
+        },
+      },
+    });
+  }
+
+  assert.equal(calls.length, 0);
+});
+
+test('onInputVariablesRequired skips when decider returns non-object', async () => {
+  const { client, calls } = makeClient();
+  const registered = {};
+  const returns = [null, 'string', 42, undefined];
+  let idx = 0;
+  client.onInputVariablesRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    () => returns[idx++],
+  );
+
+  for (let i = 0; i < returns.length; i++) {
+    await registered[EventType.ExecutionInputRequired]({
+      payload: { session_id: 's', reason: 'incorrect_form_input', input_variables: {}, screenshot_url: null },
+    });
+  }
+
+  assert.equal(calls.length, 0);
+});
+
+test('listener handles malformed event objects (null, missing payload, scalar)', async () => {
+  const { client, calls } = makeClient();
+  const registered = {};
+  client.onPopupDecisionRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    () => 'yes',
+  );
+
+  await registered[EventType.ExecutionInputRequired](null);
+  await registered[EventType.ExecutionInputRequired]({});
+  await registered[EventType.ExecutionInputRequired]({ payload: null });
+  await registered[EventType.ExecutionInputRequired](42);
+  await registered[EventType.ExecutionInputRequired]([1, 2]);
+
+  assert.equal(calls.length, 0);
+});
+
+test('unsubscribe stops the listener from firing', async () => {
+  const { client, calls } = makeClient();
+  const registered = {};
+  const unsubscribe = client.onPopupDecisionRequired(
+    {
+      sessionId: 's',
+      on(e, h) {
+        registered[e] = h;
+        return () => { delete registered[e]; };
+      },
+    },
+    () => 'yes',
+  );
+
+  await registered[EventType.ExecutionInputRequired]({
+    payload: {
+      session_id: 's', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null,
+      popup_context: {
+        error_description: 'x', error_sub_type: 'NON_DISMISSIBLE', full_url: 'x',
+        available_actions: [{ id: 'yes', label: 'Yes' }],
+        retry: { attempt: 1, max_attempts: 3 },
+      },
+    },
+  });
+  assert.equal(calls.length, 1);
+
+  unsubscribe();
+  assert.equal(registered[EventType.ExecutionInputRequired], undefined);
+});
+
+test('async decider returning Promise<string> is awaited and submitted', async () => {
+  const { client, calls } = makeClient();
+  const registered = {};
+  client.onPopupDecisionRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    async (ctx) => {
+      // Simulate an async lookup (e.g., DB call, LLM, operator UI)
+      await new Promise((r) => setTimeout(r, 5));
+      return ctx.available_actions.find((a) => /proceed/i.test(a.label)).id;
+    },
+  );
+
+  await registered[EventType.ExecutionInputRequired]({
+    payload: {
+      session_id: 's', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null,
+      popup_context: {
+        error_description: 'duplicate patient', error_sub_type: 'NON_DISMISSIBLE', full_url: 'x',
+        available_actions: [
+          { id: 'proceed_with_selected_patient', label: 'Proceed with Selected Patient' },
+          { id: 'cancel', label: 'Cancel' },
+        ],
+        retry: { attempt: 1, max_attempts: 3 },
+      },
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].body, { modal_action: 'proceed_with_selected_patient' });
+});
+
+test('async decider returning rejected Promise is swallowed (no submission)', async () => {
+  const { client, calls } = makeClient();
+  const registered = {};
+  client.onPopupDecisionRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    async () => {
+      throw new Error('decider blew up');
+    },
+  );
+
+  await registered[EventType.ExecutionInputRequired]({
+    payload: {
+      session_id: 's', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null,
+      popup_context: {
+        error_description: 'x', error_sub_type: 'NON_DISMISSIBLE', full_url: 'x',
+        available_actions: [{ id: 'yes', label: 'Yes' }],
+        retry: { attempt: 1, max_attempts: 3 },
+      },
+    },
+  });
+
+  assert.equal(calls.length, 0);
+});
+
+test('multiple modals fire back-to-back; each processed independently', async () => {
+  const { client, calls } = makeClient();
+  const registered = {};
+  const callLog = [];
+  client.onPopupDecisionRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    (ctx) => {
+      const choice = ctx.available_actions[0].id;
+      callLog.push(choice);
+      return choice;
+    },
+  );
+
+  const modals = [
+    [{ id: 'proceed', label: 'Proceed' }],
+    [{ id: 'yes', label: 'Yes' }],
+    [{ id: 'acknowledge', label: 'Acknowledge' }],
+  ];
+  for (const actions of modals) {
+    await registered[EventType.ExecutionInputRequired]({
+      payload: {
+        session_id: 's', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null,
+        popup_context: {
+          error_description: 'x', error_sub_type: 'NON_DISMISSIBLE', full_url: 'x',
+          available_actions: actions,
+          retry: { attempt: 1, max_attempts: 3 },
+        },
+      },
+    });
+  }
+
+  assert.deepEqual(callLog, ['proceed', 'yes', 'acknowledge']);
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls.map((c) => c.body.modal_action), ['proceed', 'yes', 'acknowledge']);
+});
