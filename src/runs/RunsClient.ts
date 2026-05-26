@@ -15,6 +15,24 @@ import { SimpleEventEmitter } from '../utils/events.js';
 import { ConnectionManager } from '../utils/connectionManager.js';
 import type { SessionSubscription } from '../utils/connectionManager.js';
 
+/**
+ * Default error reporter for the recovery helpers. Writes to console.error
+ * so submission failures surface in customer logs even if no onError
+ * callback is provided. The runtime SimpleEventEmitter ignores async-handler
+ * returns, so without this default a rejection from /new_input_variables
+ * would become a silent unhandled rejection.
+ */
+function defaultRecoverySubmitErrorLog(operation: string): (err: unknown) => void {
+  return (err: unknown) => {
+    try {
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      console.error(`[CloudCruise SDK] ${operation} failed during recovery: ${msg}`);
+    } catch {
+      // never throw from the error reporter
+    }
+  };
+}
+
 export class RunsClient {
   private readonly makeRequest: <T = any>(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE',
@@ -257,11 +275,18 @@ export class RunsClient {
   onPopupDecisionRequired(
     handle: RunHandle,
     decider: (ctx: PopupContext) => string | Promise<string>,
+    onError?: (err: unknown) => void,
   ): () => void {
+    const reportError = (err: unknown) => {
+      const reporter = onError ?? defaultRecoverySubmitErrorLog('submitModalAction');
+      try {
+        reporter(err);
+      } catch {
+        // defense: a buggy onError must not crash the event loop
+      }
+    };
     const listener = async (event: any) => {
       // Greptile P1: real SSE delivery nests the payload under event.data.payload.
-      // Tolerate both shapes so the helper works for both SSE and flat webhook
-      // consumers.
       const payload = (event?.data?.payload ?? event?.payload) as
         | ExecutionInputRequiredPayload
         | undefined;
@@ -269,8 +294,7 @@ export class RunsClient {
         return;
       }
 
-      // Decider exceptions are customer business logic — swallow so a buggy
-      // decider does not crash the event loop.
+      // Decider exceptions are customer business logic — swallow.
       let actionId: string;
       try {
         actionId = await decider(payload.popup_context);
@@ -281,11 +305,16 @@ export class RunsClient {
         return;
       }
 
-      // Submission failures (invalid action, wait expired, backend 4xx/5xx)
-      // are NOT swallowed. Greptile P1: silent swallow made "registered but
-      // ineffective" the failure mode. Let it propagate to the consumer.
+      // Greptile v2: SimpleEventEmitter.emit calls handlers synchronously
+      // and ignores async returns, so unhandled rejections from this await
+      // would silently disappear. Route through onError / console.error
+      // so customers observe the failure instead of timing out blind.
       const sid = payload.session_id || handle.sessionId;
-      await this.submitModalAction(sid, actionId);
+      try {
+        await this.submitModalAction(sid, actionId);
+      } catch (err) {
+        reportError(err);
+      }
     };
     const unsubscribe = handle.on(EventType.ExecutionInputRequired, listener as any);
     return typeof unsubscribe === 'function' ? unsubscribe : () => {};
@@ -305,14 +334,22 @@ export class RunsClient {
   onInputVariablesRequired(
     handle: RunHandle,
     decider: (payload: ExecutionInputRequiredPayload) => Record<string, any> | Promise<Record<string, any>>,
+    onError?: (err: unknown) => void,
   ): () => void {
     const VARIABLE_REASONS = new Set([
       'input_required',
       'incorrect_form_input',
       'multiple_matching_results',
     ]);
+    const reportError = (err: unknown) => {
+      const reporter = onError ?? defaultRecoverySubmitErrorLog('submitInputVariables');
+      try {
+        reporter(err);
+      } catch {
+        // defense
+      }
+    };
     const listener = async (event: any) => {
-      // Greptile P1: read from SSE envelope (data.payload) with fallback to flat.
       const payload = (event?.data?.payload ?? event?.payload) as
         | ExecutionInputRequiredPayload
         | undefined;
@@ -326,15 +363,18 @@ export class RunsClient {
       } catch {
         return;
       }
-      // Greptile P2: `typeof []` is `object`, so plain arrays slip through.
-      // Reject explicitly to match the endpoint contract (key/value dict).
       if (!inputVars || typeof inputVars !== 'object' || Array.isArray(inputVars)) {
         return;
       }
 
-      // Submission failures propagate (Greptile P1).
+      // Greptile v2: route submit errors through onError so they don't
+      // become unhandled rejections in the synchronous emitter loop.
       const sid = payload.session_id || handle.sessionId;
-      await this.submitInputVariables(sid, inputVars);
+      try {
+        await this.submitInputVariables(sid, inputVars);
+      } catch (err) {
+        reportError(err);
+      }
     };
     const unsubscribe = handle.on(EventType.ExecutionInputRequired, listener as any);
     return typeof unsubscribe === 'function' ? unsubscribe : () => {};

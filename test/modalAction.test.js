@@ -492,22 +492,54 @@ test('onInputVariablesRequired reads event.data.payload (real SSE envelope)', as
   assert.deepEqual(calls[0].body, { input_variables: { MEMBER_ID: 'X' } });
 });
 
-test('onPopupDecisionRequired propagates submitModalAction errors (no silent swallow)', async () => {
-  // Make _make_request equivalent reject so submitModalAction throws.
-  const calls = [];
+test('onPopupDecisionRequired routes submitModalAction errors to onError', async () => {
+  // Greptile v2: real SimpleEventEmitter ignores async returns, so a
+  // rejected promise from submitModalAction would become an unhandled
+  // rejection. Helper must catch it and route to onError (or default
+  // console.error) so customers can observe the failure.
   const failingRequest = async () => { throw new Error('backend 400: wait expired'); };
   const stubConnectionManager = { subscribe: () => ({ close: () => {} }) };
   const { RunsClient } = await import('../dist/index.js');
   const client = new RunsClient(stubConnectionManager, failingRequest);
 
+  const captured = [];
   const registered = {};
   client.onPopupDecisionRequired(
     { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
     () => 'yes',
+    (err) => captured.push(err),
   );
 
-  let caught = null;
+  // Must NOT throw — SimpleEventEmitter would swallow it.
+  await registered[EventType.ExecutionInputRequired]({
+    payload: {
+      session_id: 's', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null,
+      popup_context: {
+        error_description: 'x', error_sub_type: 'NON_DISMISSIBLE', full_url: 'x',
+        available_actions: [{ id: 'yes', label: 'Yes' }],
+        retry: { attempt: 1, max_attempts: 3 },
+      },
+    },
+  });
+
+  assert.equal(captured.length, 1);
+  assert.match(captured[0].message, /wait expired/);
+});
+
+test('onPopupDecisionRequired without onError logs to console.error by default', async () => {
+  const failingRequest = async () => { throw new Error('backend 400'); };
+  const { RunsClient } = await import('../dist/index.js');
+  const client = new RunsClient({ subscribe: () => ({ close: () => {} }) }, failingRequest);
+
+  const original = console.error;
+  const logs = [];
+  console.error = (...args) => logs.push(args.map(String).join(' '));
   try {
+    const registered = {};
+    client.onPopupDecisionRequired(
+      { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+      () => 'yes',
+    );
     await registered[EventType.ExecutionInputRequired]({
       payload: {
         session_id: 's', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null,
@@ -518,35 +550,86 @@ test('onPopupDecisionRequired propagates submitModalAction errors (no silent swa
         },
       },
     });
-  } catch (e) {
-    caught = e;
+  } finally {
+    console.error = original;
   }
-  assert.ok(caught, 'Expected submitModalAction error to propagate, but it was swallowed');
-  assert.match(caught.message, /wait expired/);
+
+  assert.equal(logs.length, 1);
+  assert.match(logs[0], /CloudCruise SDK/);
+  assert.match(logs[0], /submitModalAction/);
+  assert.match(logs[0], /backend 400/);
 });
 
-test('onInputVariablesRequired propagates submitInputVariables errors', async () => {
+test('onInputVariablesRequired routes submitInputVariables errors to onError', async () => {
   const failingRequest = async () => { throw new Error('backend 500'); };
-  const stubConnectionManager = { subscribe: () => ({ close: () => {} }) };
   const { RunsClient } = await import('../dist/index.js');
-  const client = new RunsClient(stubConnectionManager, failingRequest);
+  const client = new RunsClient({ subscribe: () => ({ close: () => {} }) }, failingRequest);
 
+  const captured = [];
   const registered = {};
   client.onInputVariablesRequired(
     { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
     () => ({ X: 1 }),
+    (err) => captured.push(err),
   );
 
-  let caught = null;
+  await registered[EventType.ExecutionInputRequired]({
+    payload: { session_id: 's', reason: 'incorrect_form_input', input_variables: {}, screenshot_url: null },
+  });
+
+  assert.equal(captured.length, 1);
+  assert.match(captured[0].message, /backend 500/);
+});
+
+test('onInputVariablesRequired without onError logs to console.error by default', async () => {
+  const failingRequest = async () => { throw new Error('backend 500'); };
+  const { RunsClient } = await import('../dist/index.js');
+  const client = new RunsClient({ subscribe: () => ({ close: () => {} }) }, failingRequest);
+
+  const original = console.error;
+  const logs = [];
+  console.error = (...args) => logs.push(args.map(String).join(' '));
   try {
+    const registered = {};
+    client.onInputVariablesRequired(
+      { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+      () => ({ X: 1 }),
+    );
     await registered[EventType.ExecutionInputRequired]({
-      payload: { session_id: 's', reason: 'incorrect_form_input', input_variables: {}, screenshot_url: null },
+      payload: { session_id: 's', reason: 'input_required', input_variables: {}, screenshot_url: null },
     });
-  } catch (e) {
-    caught = e;
+  } finally {
+    console.error = original;
   }
-  assert.ok(caught);
-  assert.match(caught.message, /backend 500/);
+
+  assert.equal(logs.length, 1);
+  assert.match(logs[0], /submitInputVariables/);
+  assert.match(logs[0], /backend 500/);
+});
+
+test('onError callback that itself throws does not crash the listener', async () => {
+  const failingRequest = async () => { throw new Error('submit boom'); };
+  const { RunsClient } = await import('../dist/index.js');
+  const client = new RunsClient({ subscribe: () => ({ close: () => {} }) }, failingRequest);
+
+  const registered = {};
+  client.onPopupDecisionRequired(
+    { sessionId: 's', on(e, h) { registered[e] = h; return () => {}; } },
+    () => 'yes',
+    () => { throw new Error('onError also broke'); },
+  );
+
+  // Must not throw.
+  await registered[EventType.ExecutionInputRequired]({
+    payload: {
+      session_id: 's', reason: 'non_dismissible_popup', input_variables: {}, screenshot_url: null,
+      popup_context: {
+        error_description: 'x', error_sub_type: 'NON_DISMISSIBLE', full_url: 'x',
+        available_actions: [{ id: 'yes', label: 'Yes' }],
+        retry: { attempt: 1, max_attempts: 3 },
+      },
+    },
+  });
 });
 
 test('onInputVariablesRequired rejects array decider returns (P2)', async () => {
