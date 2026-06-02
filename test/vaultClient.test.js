@@ -56,6 +56,17 @@ test('VaultClient.create encrypts custom proxy_value and decrypts the response',
   assert.equal(result.proxy_value, proxyUrl);
 });
 
+test('VaultClient.create throws if proxy_value is set without proxy_setting', async () => {
+  const client = new VaultClient(async () => ({}), ENCRYPTION_KEY);
+
+  await assert.rejects(
+    client.create('example.com', 'user123', {
+      proxy_value: 'socks5://user:pass@proxy.example.com:1080'
+    }),
+    /proxy_value requires proxy_setting/
+  );
+});
+
 test('VaultClient.create leaves non-custom proxy_value as plaintext', async () => {
   const calls = [];
 

@@ -79,6 +79,22 @@ export async function encryptSensitiveFields(entry: any, encryptionKey: string):
     encryptedEntry.tfa_secret = await encryptData(entry.tfa_secret, encryptionKey);
   }
 
+  // proxy_value is meaningless to the backend without proxy_setting, which is
+  // also the discriminator that tells us whether to encrypt. Fail closed: a
+  // custom proxy URL (often with embedded credentials) must never be sent in
+  // plaintext because the caller forgot the mode on a partial update.
+  if (
+    entry.proxy_value !== undefined &&
+    entry.proxy_value !== null &&
+    (entry.proxy_setting === undefined || entry.proxy_setting === null)
+  ) {
+    throw new Error(
+      "proxy_value requires proxy_setting. Pass proxy_setting: 'custom' for a " +
+        "bring-your-own proxy URL (so it is encrypted before sending), or " +
+        "'static'/'country' for a managed proxy."
+    );
+  }
+
   if (
     entry.proxy_setting === 'custom' &&
     entry.proxy_value !== undefined &&
