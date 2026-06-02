@@ -41,6 +41,8 @@ export interface VaultEntry {
   cookie_domain_to_store?: string | null;
   proxy?: ProxyConfig;
   proxy_string?: string | null;
+  proxy_setting?: 'random' | 'static' | 'country' | 'custom' | null;
+  proxy_value?: string | null;
   headers?: VaultPostPutHeadersInBody[];
   created_at?: string | null;
   session_data_set_at?: string | null;

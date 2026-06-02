@@ -58,14 +58,15 @@ export async function decryptData(encryptedHex: string, keyHex: string): Promise
 
 /**
  * Encrypts sensitive fields in a vault entry
- * Fields encrypted: user_name, password, tfa_secret (if present)
+ * Fields encrypted: user_name, password, tfa_secret (if present), and
+ * proxy_value when proxy_setting is "custom" (the bring-your-own proxy URL).
  * @param entry - Vault entry with potentially sensitive data
  * @param encryptionKey - Hex-encoded encryption key
  * @returns Entry with encrypted sensitive fields
  */
 export async function encryptSensitiveFields(entry: any, encryptionKey: string): Promise<any> {
   const encryptedEntry = { ...entry };
-  
+
   if (entry.user_name !== undefined) {
     encryptedEntry.user_name = await encryptData(entry.user_name, encryptionKey);
   }
@@ -73,11 +74,19 @@ export async function encryptSensitiveFields(entry: any, encryptionKey: string):
   if (entry.password !== undefined) {
     encryptedEntry.password = await encryptData(entry.password, encryptionKey);
   }
-  
+
   if (entry.tfa_secret !== undefined) {
     encryptedEntry.tfa_secret = await encryptData(entry.tfa_secret, encryptionKey);
   }
-  
+
+  if (
+    entry.proxy_setting === 'custom' &&
+    entry.proxy_value !== undefined &&
+    entry.proxy_value !== null
+  ) {
+    encryptedEntry.proxy_value = await encryptData(entry.proxy_value, encryptionKey);
+  }
+
   return encryptedEntry;
 }
 
@@ -107,6 +116,12 @@ export async function decryptSensitiveFields(entry: any, encryptionKey: string):
       decryptedEntry.tfa_secret = await decryptData(entry.tfa_secret, encryptionKey);
     } catch {}
   }
-  
+
+  if (entry.proxy_setting === 'custom' && typeof entry.proxy_value === 'string') {
+    try {
+      decryptedEntry.proxy_value = await decryptData(entry.proxy_value, encryptionKey);
+    } catch {}
+  }
+
   return decryptedEntry;
 }
