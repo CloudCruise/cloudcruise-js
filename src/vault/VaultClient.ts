@@ -1,6 +1,7 @@
 import type {
   GetVaultEntriesFilters,
-  VaultEntry
+  VaultEntry,
+  VaultTfaCode
 } from './types.js';
 import { encryptSensitiveFields, decryptSensitiveFields } from './utils.js';
 
@@ -82,6 +83,39 @@ export class VaultClient {
     }
     
     return entries;
+  }
+
+  /**
+   * Gets the current 2FA code for a single vault entry.
+   *
+   * The code returned depends on the credential's 2FA method:
+   * - Authenticator (TOTP): a freshly generated code, with `expires_in_seconds`.
+   * - Email: the most recently received code (within the freshness window), with `received_at`.
+   * - SMS: the most recently received code, but only when the workspace has a
+   *   dedicated phone number; otherwise the request is rejected.
+   *
+   * Magic-link credentials are not supported.
+   *
+   * @param permissioned_user_id - User identifier for the vault entry
+   * @param domain - Target domain of the vault entry
+   */
+  async getTfaCode(
+    permissioned_user_id: string,
+    domain: string
+  ): Promise<VaultTfaCode> {
+    if (!permissioned_user_id) {
+      throw new Error('permissioned_user_id is required to get a TFA code');
+    }
+    if (!domain) {
+      throw new Error('domain is required to get a TFA code');
+    }
+    const params = new URLSearchParams();
+    params.append('permissioned_user_id', permissioned_user_id);
+    params.append('domain', domain);
+    return await this.makeRequest<VaultTfaCode>(
+      'GET',
+      `/vault/tfa-code?${params.toString()}`
+    );
   }
 
   /**
