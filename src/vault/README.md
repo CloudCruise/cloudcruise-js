@@ -59,8 +59,8 @@ await client.vault.delete({
 // Get the current 2FA code for an entry (auto-detected by the credential's 2FA method)
 const tfa = await client.vault.getTfaCode("user123", "https://example.com");
 // Authenticator -> { type: "authenticator", code: "123456", expires_in_seconds: 23 }
-// Email/SMS     -> { type: "email", code: "884512", received_at: "..." }
-// (SMS requires a dedicated workspace phone number; magic-link is not supported.)
+// Email         -> { type: "email", code: "884512", received_at: "..." }
+// (SMS and magic-link credentials are not supported.)
 ```
 
 ### Advanced Configuration

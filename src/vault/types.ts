@@ -56,10 +56,10 @@ export interface GetVaultEntriesFilters {
 
 /**
  * The current 2FA code for a vault entry. `expires_in_seconds` is present for
- * authenticator (TOTP) codes; `received_at` is present for email/SMS codes.
+ * authenticator (TOTP) codes; `received_at` is present for email codes.
  */
 export interface VaultTfaCode {
-  type: 'authenticator' | 'email' | 'sms';
+  type: 'authenticator' | 'email';
   code: string;
   expires_in_seconds?: number;
   received_at?: string;

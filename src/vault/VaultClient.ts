@@ -91,10 +91,8 @@ export class VaultClient {
    * The code returned depends on the credential's 2FA method:
    * - Authenticator (TOTP): a freshly generated code, with `expires_in_seconds`.
    * - Email: the most recently received code (within the freshness window), with `received_at`.
-   * - SMS: the most recently received code, but only when the workspace has a
-   *   dedicated phone number; otherwise the request is rejected.
    *
-   * Magic-link credentials are not supported.
+   * SMS and magic-link credentials are not supported (the endpoint returns 409).
    *
    * @param permissioned_user_id - User identifier for the vault entry
    * @param domain - Target domain of the vault entry
