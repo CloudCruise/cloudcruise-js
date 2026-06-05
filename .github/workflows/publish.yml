@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   publish:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: npm-publish
     steps:
@@ -36,11 +37,19 @@ jobs:
           PKG=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          if npm view "$PKG@$VERSION" version >/dev/null 2>&1; then
+          set +e
+          OUT=$(npm view "$PKG@$VERSION" version 2>&1)
+          CODE=$?
+          set -e
+          if [ $CODE -eq 0 ] && [ -n "$OUT" ]; then
             echo "publish=false" >> "$GITHUB_OUTPUT"
             echo "$PKG@$VERSION already on npm, skipping publish"
-          else
+          elif [ $CODE -eq 0 ] || echo "$OUT" | grep -q "E404"; then
             echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm view failed unexpectedly:"
+            echo "$OUT"
+            exit 1
           fi
 
       - name: Verify tarball contains build output
@@ -52,7 +61,10 @@ jobs:
         run: npm publish --access public
 
       - name: Create GitHub release
-        if: steps.check.outputs.publish == 'true'
-        run: gh release create "v${{ steps.check.outputs.version }}" --generate-notes
+        if: steps.check.outputs.publish == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          gh release view "v$VERSION" >/dev/null 2>&1 ||
+            gh release create "v$VERSION" --generate-notes
         env:
+          VERSION: ${{ steps.check.outputs.version }}
           GH_TOKEN: ${{ github.token }}
