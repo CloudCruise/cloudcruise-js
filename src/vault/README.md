@@ -87,6 +87,21 @@ await client.vault.create("https://app.example.com", "user123", {
     target_ip: "192.168.1.100",
   },
 });
+
+// Managed proxy via proxy_setting / proxy_value
+await client.vault.create("https://app.example.com", "user123", {
+  proxy_setting: "country", // "random" | "static" | "country" | "custom"
+  proxy_value: "US", // country code for "country"; target IP for "static"
+});
+
+// Custom (bring-your-own) proxy — Enterprise only.
+// proxy_value is encrypted client-side with your workspace key, exactly like
+// password/tfa_secret. Supported forms: socks5://, http://, https:// (with
+// optional user:pass@). A SOCKS5 proxy with UDP support is preferred.
+await client.vault.create("https://app.example.com", "user123", {
+  proxy_setting: "custom",
+  proxy_value: "socks5://user:pass@proxy.example.com:1080",
+});
 ```
 
 ## Official API Documentation

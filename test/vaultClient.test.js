@@ -37,6 +37,53 @@ test('VaultClient.create encrypts sensitive fields and decrypts the response', a
   assert.equal(result.tfa_secret, options.tfa_secret);
 });
 
+test('VaultClient.create encrypts custom proxy_value and decrypts the response', async () => {
+  const calls = [];
+
+  const client = new VaultClient(async (method, path, body) => {
+    calls.push({ method, path, body });
+    return body;
+  }, ENCRYPTION_KEY);
+
+  const proxyUrl = 'socks5://user:pass@proxy.example.com:1080';
+  const result = await client.create('example.com', 'user123', {
+    proxy_setting: 'custom',
+    proxy_value: proxyUrl
+  });
+
+  assert.equal(calls[0].body.proxy_setting, 'custom');
+  assert.notEqual(calls[0].body.proxy_value, proxyUrl);
+  assert.equal(result.proxy_value, proxyUrl);
+});
+
+test('VaultClient.create throws if proxy_value is set without proxy_setting', async () => {
+  const client = new VaultClient(async () => ({}), ENCRYPTION_KEY);
+
+  await assert.rejects(
+    client.create('example.com', 'user123', {
+      proxy_value: 'socks5://user:pass@proxy.example.com:1080'
+    }),
+    /proxy_value requires proxy_setting/
+  );
+});
+
+test('VaultClient.create leaves non-custom proxy_value as plaintext', async () => {
+  const calls = [];
+
+  const client = new VaultClient(async (method, path, body) => {
+    calls.push({ method, path, body });
+    return body;
+  }, ENCRYPTION_KEY);
+
+  const result = await client.create('example.com', 'user123', {
+    proxy_setting: 'country',
+    proxy_value: 'US'
+  });
+
+  assert.equal(calls[0].body.proxy_value, 'US');
+  assert.equal(result.proxy_value, 'US');
+});
+
 test('VaultClient.create forwards concurrency, expiry, and persistence options', async () => {
   const calls = [];
 
