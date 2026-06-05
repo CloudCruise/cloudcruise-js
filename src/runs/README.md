@@ -85,6 +85,64 @@ run.on("run.event", async (event) => {
 });
 ```
 
+### Input-Required Recoveries
+
+When the worker can't proceed and needs human/business input, the backend emits an `execution.input_required` event with a `reason` discriminator. The SDK exposes two logical handlers, one per recovery family. Underneath, both route from the same event; the SDK partitions by `reason` so your code stays clean.
+
+| `reason` | Recovery shape | SDK handler | Decider returns |
+|---|---|---|---|
+| `non_dismissible_popup` | Modal blocks click; pick one CTA button | `onPopupDecisionRequired` | `string` (action id) |
+| `input_required` | Workflow needs a missing variable | `onInputVariablesRequired` | `Record<string, any>` |
+| `incorrect_form_input` | Form rejected the typed value | `onInputVariablesRequired` | `Record<string, any>` |
+| `multiple_matching_results` | Extractor needs disambiguation | `onInputVariablesRequired` | `Record<string, any>` |
+
+The SDK never picks a value on its own. The decision is always yours.
+
+**Non-dismissible modal (popup decision required)**
+
+```typescript
+const popupDecider = (ctx) => {
+  // ctx.retry.attempt lets you branch your choice between the first try and
+  // a retry (e.g., switch from Yes to Cancel if the modal re-appeared).
+  if (ctx.error_description.toLowerCase().includes("duplicate")) {
+    return ctx.available_actions.find((a) => /proceed/i.test(a.label)).id;
+  }
+  return ctx.available_actions[0].id;
+};
+
+const handle = await client.runs.start({ workflow_id: "...", run_input_variables: {} });
+client.runs.onPopupDecisionRequired(handle, popupDecider);
+const result = await handle.wait();
+```
+
+**Workflow variable (`input_required` / `incorrect_form_input` / `multiple_matching_results`)**
+
+```typescript
+const variablesDecider = (payload) => {
+  // payload is the full input_required event payload (includes reason).
+  if (payload.reason === "incorrect_form_input") {
+    return { USERNAME: promptOperatorForUsername() };
+  }
+  if (payload.reason === "input_required") {
+    return { MEMBER_ID: lookupMemberId() };
+  }
+  return {};
+};
+
+client.runs.onInputVariablesRequired(handle, variablesDecider);
+```
+
+**Both handlers compose** — register both on the same handle if your workflow can hit either family.
+
+**Low-level escape hatches** for full control:
+- `client.runs.submitModalAction(sessionId, actionId)`
+- `client.runs.submitInputVariables(sessionId, dict)`
+- `handle.on("execution.input_required", listener)` for raw event access.
+
+Tips:
+- Customer-side wait budget = workspace setting `input_required_timeout_seconds` (default 15s, clamp 5-300s).
+- For multi-step modal chains (modal A → dismiss → modal B → dismiss), `onPopupDecisionRequired` is invoked once per modal automatically. The attempt counter resets after each verified dismissal.
+
 ### Advanced Options
 
 ```typescript
