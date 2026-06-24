@@ -52,6 +52,18 @@ test('SecretProvidersClient.listItems fetches provider items', async () => {
   assert.equal(items[0].ref, 'op://vault/item-1');
 });
 
+test('SecretProvidersClient.listItems encodes provider id in path', async () => {
+  const paths = [];
+  const client = new SecretProvidersClient(async (method, path) => {
+    paths.push(path);
+    return [];
+  });
+
+  await client.listItems('provider/with space');
+
+  assert.equal(paths[0], '/secret-providers/provider%2Fwith%20space/items');
+});
+
 test('SecretProvidersClient.listItems requires provider id', async () => {
   const client = new SecretProvidersClient(async () => []);
 

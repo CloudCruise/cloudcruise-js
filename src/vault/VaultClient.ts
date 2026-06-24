@@ -32,6 +32,10 @@ function validateProviderPayload(entry: Partial<VaultEntry>): void {
   }
 }
 
+function isProviderBackedPayload(entry: Partial<VaultEntry>): boolean {
+  return entry.secret_provider_id !== undefined || entry.secret_ref !== undefined;
+}
+
 export class VaultClient {
   private readonly makeRequest: <T = any>(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE',
@@ -162,6 +166,14 @@ export class VaultClient {
       throw new Error('domain is required for vault updates');
     }
     validateProviderPayload(updates);
+    if (!isProviderBackedPayload(updates)) {
+      if (!updates.user_name) {
+        throw new Error('user_name is required for vault updates');
+      }
+      if (!updates.password) {
+        throw new Error('password is required for vault updates');
+      }
+    }
     
     let processedEntry = { ...updates };
     

@@ -32,7 +32,7 @@ export class SecretProvidersClient {
 
     const response = await this.makeRequest<SecretProviderItem[]>(
       'GET',
-      `/secret-providers/${secretProviderId}/items`
+      `/secret-providers/${encodeURIComponent(secretProviderId)}/items`
     );
     return Array.isArray(response) ? response : [response];
   }

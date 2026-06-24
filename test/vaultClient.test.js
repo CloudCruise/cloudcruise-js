@@ -265,6 +265,15 @@ test('VaultClient.update throws if required fields are missing', async () => {
       }),
     /domain is required for vault updates/
   );
+
+  await assert.rejects(
+    () =>
+      client.update({
+        permissioned_user_id: 'user123',
+        domain: 'example.com'
+      }),
+    /user_name is required for vault updates/
+  );
 });
 
 test('VaultClient.update supports provider-backed updates', async () => {
