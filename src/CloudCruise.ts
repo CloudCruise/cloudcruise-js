@@ -1,5 +1,6 @@
 import { getEnv } from './utils/env.js';
 import { VaultClient } from './vault/VaultClient.js';
+import { SecretProvidersClient } from './secretProviders/SecretProvidersClient.js';
 import { WorkflowsClient } from './workflows/WorkflowsClient.js';
 import { RunsClient } from './runs/RunsClient.js';
 import { WebhookClient } from './webhook/WebhookClient.js';
@@ -59,6 +60,7 @@ export class CloudCruise {
   private readonly encryptionKey: string;
   
   public readonly vault: VaultClient;
+  public readonly secretProviders: SecretProvidersClient;
   public readonly workflows: WorkflowsClient;
   public readonly runs: RunsClient;
   public readonly webhook: WebhookClient;
@@ -86,6 +88,7 @@ export class CloudCruise {
     // Initialize namespace clients
     this.connectionManager = new ConnectionManager(this.baseUrl, this.apiKey);
     this.vault = new VaultClient(this.makeRequest.bind(this), this.encryptionKey);
+    this.secretProviders = new SecretProvidersClient(this.makeRequest.bind(this));
     this.workflows = new WorkflowsClient(this.makeRequest.bind(this));
     this.runs = new RunsClient(this.connectionManager, this.makeRequest.bind(this), this.workflows);
     this.webhook = new WebhookClient();
