@@ -33,7 +33,7 @@ function validateProviderPayload(entry: Partial<VaultEntry>): void {
 }
 
 function isProviderBackedPayload(entry: Partial<VaultEntry>): boolean {
-  return entry.secret_provider_id !== undefined || entry.secret_ref !== undefined;
+  return entry.secret_provider_id != null && entry.secret_ref != null;
 }
 
 export class VaultClient {
