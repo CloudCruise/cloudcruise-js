@@ -63,6 +63,22 @@ const tfa = await client.vault.getTfaCode("user123", "https://example.com");
 // (SMS and magic-link credentials are not supported.)
 ```
 
+### Provider-Backed Credentials
+
+Use `secretProviders` to find a connected 1Password account and item ref, then
+bind a vault entry to that item instead of sending `user_name` / `password`.
+
+```typescript
+const providers = await client.secretProviders.list();
+const items = await client.secretProviders.listItems(providers[0].id);
+
+const entry = await client.vault.create("https://example.com", "user123", {
+  secret_provider_id: providers[0].id,
+  secret_ref: items[0].ref,
+  secret_cache_ttl_seconds: 300,
+});
+```
+
 ### Advanced Configuration
 
 ```typescript

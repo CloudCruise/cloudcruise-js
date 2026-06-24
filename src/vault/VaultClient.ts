@@ -5,6 +5,33 @@ import type {
 } from './types.js';
 import { encryptSensitiveFields, decryptSensitiveFields } from './utils.js';
 
+function validateProviderPayload(entry: Partial<VaultEntry>): void {
+  const hasProviderId = entry.secret_provider_id !== undefined && entry.secret_provider_id !== null;
+  const hasSecretRef = entry.secret_ref !== undefined && entry.secret_ref !== null;
+
+  if (hasProviderId !== hasSecretRef) {
+    throw new Error('secret_provider_id and secret_ref must be provided together');
+  }
+
+  if (entry.secret_cache_ttl_seconds !== undefined && entry.secret_cache_ttl_seconds !== null) {
+    if (!Number.isInteger(entry.secret_cache_ttl_seconds) || entry.secret_cache_ttl_seconds < 0) {
+      throw new Error('secret_cache_ttl_seconds must be a non-negative integer');
+    }
+    if (!hasProviderId) {
+      throw new Error('secret_cache_ttl_seconds requires secret_provider_id and secret_ref');
+    }
+  }
+
+  if (hasProviderId) {
+    const conflicts = ['user_name', 'password', 'tfa_secret'].filter(
+      field => entry[field as keyof VaultEntry] !== undefined && entry[field as keyof VaultEntry] !== null
+    );
+    if (conflicts.length > 0) {
+      throw new Error(`provider-backed vault entries cannot include ${conflicts.join(', ')}`);
+    }
+  }
+}
+
 export class VaultClient {
   private readonly makeRequest: <T = any>(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE',
@@ -38,6 +65,7 @@ export class VaultClient {
       permissioned_user_id,
       ...options
     };
+    validateProviderPayload(entry);
     
     let processedEntry = { ...entry };
     
@@ -120,29 +148,20 @@ export class VaultClient {
    * Updates an existing vault entry
    * @param updates - Vault entry updates including required fields
    * @param updates.permissioned_user_id - Required: User identifier for the vault entry
-   * @param updates.user_name - Required: Username or email
-   * @param updates.password - Required: User password
    * @param updates.domain - Required: Target domain for the credentials
    */
   async update(updates: Partial<VaultEntry> & {
     permissioned_user_id: string;
-    user_name: string;
-    password: string;
     domain: string;
   }): Promise<VaultEntry> {
     // Validate required fields
     if (!updates.permissioned_user_id) {
       throw new Error('permissioned_user_id is required for vault updates');
     }
-    if (!updates.user_name) {
-      throw new Error('user_name is required for vault updates');
-    }
-    if (!updates.password) {
-      throw new Error('password is required for vault updates');
-    }
     if (!updates.domain) {
       throw new Error('domain is required for vault updates');
     }
+    validateProviderPayload(updates);
     
     let processedEntry = { ...updates };
     
