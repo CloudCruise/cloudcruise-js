@@ -7,6 +7,7 @@ import type {
   RunStreamOptions,
   SseMessage,
   RunHandleEventMap,
+  LiveViewConnection,
 } from './types.js';
 import { EventType } from '../events/types.js';
 import type { PopupContext, ExecutionInputRequiredPayload } from '../events/types.js';
@@ -422,6 +423,22 @@ export class RunsClient {
   async getResults(sessionId: string): Promise<GetRunResult> {
     const path = `/run/${sessionId}`;
     return await this.makeRequest<GetRunResult>('GET', path);
+  }
+
+  /**
+   * Fetches a fresh live-view connection (viewer URL + auth token) for
+   * watching an active session's browser stream. The auth token is
+   * single-use, so reopening a previously used viewer link will fail —
+   * call this again to mint a new one instead.
+   *
+   * Only works while the session is still active; throws once the session
+   * has ended.
+   *
+   * @param sessionId - The unique identifier for the workflow execution session
+   */
+  async getLiveViewConnection(sessionId: string): Promise<LiveViewConnection> {
+    const path = `/live/sessions/${sessionId}/connection`;
+    return await this.makeRequest<LiveViewConnection>('GET', path);
   }
 
   /**

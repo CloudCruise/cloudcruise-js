@@ -66,6 +66,24 @@ for await (const event of run) {
 }
 ```
 
+### Watching a Live Session
+
+While a session is running, you can fetch a viewer URL (`live_view.html` link) to watch its browser stream:
+
+```typescript
+const { url } = await client.runs.getLiveViewConnection(run.sessionId);
+console.log("Watch live:", url);
+```
+
+The returned `authToken` embedded in `url` is **single-use** — once the link has been opened, opening it a second time (e.g. reloading the tab, or reopening it later) will fail to connect. Call `getLiveViewConnection` again to mint a fresh token/link rather than reusing the old one:
+
+```typescript
+// Token from a previous call was already consumed — mint a new one
+const { url: freshUrl } = await client.runs.getLiveViewConnection(run.sessionId);
+```
+
+This only succeeds while the session is still active; it throws once the session has ended.
+
 ### User Interactions
 
 See [documentation](https://docs.cloudcruise.com/run-api/submit-user-interaction-data) for more information.

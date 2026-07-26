@@ -82,6 +82,13 @@ export interface VideoUrl {
 
 
 
+// Response from GET /live/sessions/:sessionId/connection
+export interface LiveViewConnection {
+  url: string;
+  sessionId: string;
+  authToken: string;
+}
+
 export interface RunError {
   prompt?: string | null;
   message?: string | null;
