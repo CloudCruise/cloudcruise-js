@@ -50,7 +50,8 @@ export type {
   SseEventName,
   SseMessage,
   RunEventEnvelope,
-  RunHandleEventMap
+  RunHandleEventMap,
+  LiveViewConnection
 } from './runs/types.js';
 
 // Export shared event types
