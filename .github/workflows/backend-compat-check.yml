@@ -10,6 +10,13 @@ name: Backend Compatibility Check
 # names. The patched source is never committed and this job has no publish
 # credentials (see publish.yml's separate `npm-publish` environment) —
 # nothing built here can reach npm.
+#
+# workflow_dispatch lets the caller pick which ref to run, and an unpinned
+# checkout defaults to that ref — so a dispatcher could otherwise point this
+# at a branch with a tampered compat-smoke.mjs and have it run with
+# COMPAT_TEST_API_KEY injected. The job only runs for main, and checkout is
+# pinned to main explicitly, so only reviewed, merged code ever executes
+# with the credential regardless of what ref was selected to trigger it.
 
 on:
   workflow_dispatch:
@@ -27,9 +34,12 @@ permissions:
 
 jobs:
   compat-check:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: main
 
       - uses: pnpm/action-setup@a15d269cd4658e1107c09f1fabf4cbd7bd1f308a # v4.4.0
         with:
