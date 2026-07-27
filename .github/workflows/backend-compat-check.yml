@@ -1,0 +1,68 @@
+name: Backend Compatibility Check
+
+# Verifies the current SDK still works against a real, running CloudCruise
+# backend. `CloudCruise.ts` deliberately restricts baseUrl to prod/staging to
+# stop an API key ever being sent to an unapproved host, so this workflow
+# patches that allowlist to add a target URL, builds from the patched source,
+# and runs a read-only smoke check against it. `base_url` is a closed choice
+# list, not free text — an unvetted destination could otherwise turn this
+# into a way to exfiltrate COMPAT_TEST_API_KEY to any host a dispatcher
+# names. The patched source is never committed and this job has no publish
+# credentials (see publish.yml's separate `npm-publish` environment) —
+# nothing built here can reach npm.
+#
+# workflow_dispatch lets the caller pick which ref to run, and an unpinned
+# checkout defaults to that ref — so a dispatcher could otherwise point this
+# at a branch with a tampered compat-smoke.mjs and have it run with
+# COMPAT_TEST_API_KEY injected. The job only runs for main, and checkout is
+# pinned to main explicitly, so only reviewed, merged code ever executes
+# with the credential regardless of what ref was selected to trigger it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Backend URL to test against"
+        required: true
+        type: choice
+        options:
+          - https://staging-api.cloudcruise.app
+        default: https://staging-api.cloudcruise.app
+
+permissions:
+  contents: read
+
+jobs:
+  compat-check:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: main
+
+      - uses: pnpm/action-setup@a15d269cd4658e1107c09f1fabf4cbd7bd1f308a # v4.4.0
+        with:
+          version: 10
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Patch base URL allowlist for this test run only
+        run: |
+          grep -q "new Set(\[DEFAULT_BASE_URL, STAGING_BASE_URL\])" src/CloudCruise.ts || {
+            echo "::error::allowlist pattern not found in src/CloudCruise.ts — refusing to run unpatched"
+            exit 1
+          }
+          sed -i "s#new Set(\[DEFAULT_BASE_URL, STAGING_BASE_URL\])#new Set([DEFAULT_BASE_URL, STAGING_BASE_URL, process.env.COMPAT_TEST_BASE_URL])#" src/CloudCruise.ts
+
+      - run: pnpm build
+
+      - name: Run compatibility smoke test
+        run: node scripts/compat-smoke.mjs
+        env:
+          COMPAT_TEST_BASE_URL: ${{ inputs.base_url }}
+          CLOUDCRUISE_API_KEY: ${{ secrets.COMPAT_TEST_API_KEY }}
