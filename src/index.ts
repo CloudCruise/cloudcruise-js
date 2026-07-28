@@ -69,6 +69,17 @@ export type {
   AgentErrorAnalysisPayload
 } from './events/types.js';
 
+export type {
+  ComponentVersionRef,
+  ComponentReference,
+  ComponentCallParameters,
+  ComponentCallNode,
+  ComponentImport,
+  ComponentIOSchema,
+  ComponentVaultSchemaCredential,
+  ComponentDefinition
+} from './components/types.js';
+
 export type { WebhookVerificationOptions } from './webhook/types.js';
 export { VerificationError } from './webhook/types.js';
 export { InputValidationError } from './workflows/types.js';
