@@ -4,9 +4,10 @@ name: Backend Compatibility Check
 # backend. `CloudCruise.ts` deliberately restricts baseUrl to prod/staging to
 # stop an API key ever being sent to an unapproved host, so this workflow
 # patches that allowlist to add a target URL, builds from the patched source,
-# and runs a read-only smoke check against it. `base_url` is a closed choice
-# list, not free text — an unvetted destination could otherwise turn this
-# into a way to exfiltrate COMPAT_TEST_API_KEY to any host a dispatcher
+# and runs a read-only smoke check against it. `base_url` is validated against
+# a closed list regardless of how it arrived, not free text — an unvetted
+# destination could otherwise turn this into a way to exfiltrate
+# COMPAT_TEST_API_KEY to any host a dispatcher (or repository_dispatch caller)
 # names. The patched source is never committed and this job has no publish
 # credentials (see publish.yml's separate `npm-publish` environment) —
 # nothing built here can reach npm.
@@ -17,6 +18,12 @@ name: Backend Compatibility Check
 # COMPAT_TEST_API_KEY injected. The job only runs for main, and checkout is
 # pinned to main explicitly, so only reviewed, merged code ever executes
 # with the credential regardless of what ref was selected to trigger it.
+#
+# repository_dispatch lets the backend monorepo trigger this automatically
+# after a real production deploy. Its client_payload is arbitrary JSON from
+# anyone with write access to this repo -- not gated by workflow_dispatch's
+# `type: choice` UI at all -- so base_url is validated against the same
+# closed list in the resolve step below rather than trusted directly.
 
 on:
   workflow_dispatch:
@@ -28,6 +35,8 @@ on:
         options:
           - https://staging-api.cloudcruise.app
         default: https://staging-api.cloudcruise.app
+  repository_dispatch:
+    types: [backend-deployed]
 
 permissions:
   contents: read
@@ -40,6 +49,23 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: main
+
+      - name: Resolve and validate base_url
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            BASE_URL="${{ github.event.client_payload.base_url }}"
+          else
+            BASE_URL="${{ inputs.base_url }}"
+          fi
+          case "$BASE_URL" in
+            https://staging-api.cloudcruise.app) ;;
+            *)
+              echo "::error::Unapproved base_url '$BASE_URL' -- repository_dispatch payloads aren't gated by the workflow_dispatch choice list, so this is validated the same way rather than trusted directly."
+              exit 1
+              ;;
+          esac
+          echo "base_url=$BASE_URL" >> "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@a15d269cd4658e1107c09f1fabf4cbd7bd1f308a # v4.4.0
         with:
@@ -64,5 +90,5 @@ jobs:
       - name: Run compatibility smoke test
         run: node scripts/compat-smoke.mjs
         env:
-          COMPAT_TEST_BASE_URL: ${{ inputs.base_url }}
+          COMPAT_TEST_BASE_URL: ${{ steps.resolve.outputs.base_url }}
           CLOUDCRUISE_API_KEY: ${{ secrets.COMPAT_TEST_API_KEY }}
