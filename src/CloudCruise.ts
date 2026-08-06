@@ -5,6 +5,7 @@ import { WorkflowsClient } from './workflows/WorkflowsClient.js';
 import { RunsClient } from './runs/RunsClient.js';
 import { WebhookClient } from './webhook/WebhookClient.js';
 import { ConnectionManager } from './utils/connectionManager.js';
+import { inputValidationErrorFromResponse } from './workflows/validation.js';
 
 const DEFAULT_BASE_URL = 'https://api.cloudcruise.com';
 const STAGING_BASE_URL = 'https://staging-api.cloudcruise.app';
@@ -119,14 +120,32 @@ export class CloudCruise {
       if (!response.ok) {
         const errorText = await response.text();
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        
+
+        let errorJson: unknown;
         try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.message || errorJson.error || errorMessage;
+          errorJson = JSON.parse(errorText);
         } catch {
           // Use HTTP status if we can't parse error response
         }
-        
+
+        if (
+          typeof errorJson === 'object' &&
+          errorJson !== null &&
+          !Array.isArray(errorJson)
+        ) {
+          const errorBody = errorJson as Record<string, unknown>;
+          const validationError = inputValidationErrorFromResponse(
+            errorBody,
+            body
+          );
+          if (validationError) throw validationError;
+
+          errorMessage =
+            (typeof errorBody.message === 'string' && errorBody.message) ||
+            (typeof errorBody.error === 'string' && errorBody.error) ||
+            errorMessage;
+        }
+
         throw new Error(errorMessage);
       }
 

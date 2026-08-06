@@ -25,7 +25,9 @@ export type {
 export type {
   Workflow,
   WorkflowInputSchema,
-  WorkflowMetadata
+  WorkflowMetadata,
+  InvalidTypeDetail,
+  SchemaErrorDetail
 } from './workflows/types.js';
 
 export type {
