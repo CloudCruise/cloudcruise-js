@@ -20,6 +20,9 @@ export interface VaultEntry {
   user_id?: string;
   password?: string;
   user_name?: string;
+  secret_provider_id?: string | null;
+  secret_ref?: string | null;
+  secret_cache_ttl_seconds?: number | null;
   tfa_secret?: string;
   user_agent?: string;
   user_alias?: string;
@@ -41,6 +44,8 @@ export interface VaultEntry {
   cookie_domain_to_store?: string | null;
   proxy?: ProxyConfig;
   proxy_string?: string | null;
+  proxy_setting?: 'random' | 'static' | 'country' | 'custom' | null;
+  proxy_value?: string | null;
   headers?: VaultPostPutHeadersInBody[];
   created_at?: string | null;
   session_data_set_at?: string | null;
@@ -52,6 +57,22 @@ export interface GetVaultEntriesFilters {
   permissioned_user_id?: string;
   domain?: string;
   decryptCredentials?: boolean;
+}
+
+export type SecretProviderType = '1password';
+
+export interface SecretProvider {
+  id: string;
+  provider_type: SecretProviderType;
+  name: string;
+  cache_ttl_seconds?: number | null;
+}
+
+export interface SecretProviderItem {
+  id: string;
+  title: string;
+  ref: string;
+  vaultName?: string | null;
 }
 
 /**

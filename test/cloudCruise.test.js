@@ -78,3 +78,44 @@ test('CloudCruise requires HTTPS for the default API host', () => {
     /The default CloudCruise API host requires https:/
   );
 });
+
+
+test('CloudCruise accepts the staging baseUrl as an allowed override', async () => {
+  clearCloudCruiseEnv();
+
+  const originalFetch = globalThis.fetch;
+  let capturedUrl;
+
+  globalThis.fetch = async (url) => {
+    capturedUrl = String(url);
+    return new Response(JSON.stringify([]), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+
+  try {
+    const client = new CloudCruise({
+      apiKey: API_KEY,
+      encryptionKey: ENCRYPTION_KEY,
+      baseUrl: 'https://staging-api.cloudcruise.app',
+    });
+    await client.workflows.getAllWorkflows();
+    assert.equal(capturedUrl, 'https://staging-api.cloudcruise.app/workflows');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('CloudCruise still rejects attacker URLs after staging is added', () => {
+  clearCloudCruiseEnv();
+  assert.throws(
+    () =>
+      new CloudCruise({
+        apiKey: API_KEY,
+        encryptionKey: ENCRYPTION_KEY,
+        baseUrl: 'https://attacker.example.com',
+      }),
+    /Refusing to send CloudCruise API key to unapproved baseUrl/
+  );
+});

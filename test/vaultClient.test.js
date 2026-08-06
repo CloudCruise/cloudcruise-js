@@ -37,6 +37,53 @@ test('VaultClient.create encrypts sensitive fields and decrypts the response', a
   assert.equal(result.tfa_secret, options.tfa_secret);
 });
 
+test('VaultClient.create encrypts custom proxy_value and decrypts the response', async () => {
+  const calls = [];
+
+  const client = new VaultClient(async (method, path, body) => {
+    calls.push({ method, path, body });
+    return body;
+  }, ENCRYPTION_KEY);
+
+  const proxyUrl = 'socks5://user:pass@proxy.example.com:1080';
+  const result = await client.create('example.com', 'user123', {
+    proxy_setting: 'custom',
+    proxy_value: proxyUrl
+  });
+
+  assert.equal(calls[0].body.proxy_setting, 'custom');
+  assert.notEqual(calls[0].body.proxy_value, proxyUrl);
+  assert.equal(result.proxy_value, proxyUrl);
+});
+
+test('VaultClient.create throws if proxy_value is set without proxy_setting', async () => {
+  const client = new VaultClient(async () => ({}), ENCRYPTION_KEY);
+
+  await assert.rejects(
+    client.create('example.com', 'user123', {
+      proxy_value: 'socks5://user:pass@proxy.example.com:1080'
+    }),
+    /proxy_value requires proxy_setting/
+  );
+});
+
+test('VaultClient.create leaves non-custom proxy_value as plaintext', async () => {
+  const calls = [];
+
+  const client = new VaultClient(async (method, path, body) => {
+    calls.push({ method, path, body });
+    return body;
+  }, ENCRYPTION_KEY);
+
+  const result = await client.create('example.com', 'user123', {
+    proxy_setting: 'country',
+    proxy_value: 'US'
+  });
+
+  assert.equal(calls[0].body.proxy_value, 'US');
+  assert.equal(result.proxy_value, 'US');
+});
+
 test('VaultClient.create forwards concurrency, expiry, and persistence options', async () => {
   const calls = [];
 
@@ -70,6 +117,47 @@ test('VaultClient.create forwards concurrency, expiry, and persistence options',
   assert.strictEqual(body.persist_local_storage, null);
   assert.strictEqual(body.persist_session_storage, true);
   assert.strictEqual(body.persist_cookies, null);
+});
+
+test('VaultClient.create forwards provider-backed fields without encrypting them', async () => {
+  const calls = [];
+
+  const client = new VaultClient(async (method, path, body) => {
+    calls.push({ method, path, body });
+    return body;
+  }, ENCRYPTION_KEY);
+
+  await client.create('example.com', 'user123', {
+    secret_provider_id: 'provider-1',
+    secret_ref: 'op://vault/item',
+    secret_cache_ttl_seconds: 300
+  });
+
+  assert.equal(calls[0].body.secret_provider_id, 'provider-1');
+  assert.equal(calls[0].body.secret_ref, 'op://vault/item');
+  assert.equal(calls[0].body.secret_cache_ttl_seconds, 300);
+});
+
+test('VaultClient.create validates provider-backed fields', async () => {
+  const client = new VaultClient(async () => ({}), ENCRYPTION_KEY);
+
+  await assert.rejects(
+    () =>
+      client.create('example.com', 'user123', {
+        secret_provider_id: 'provider-1'
+      }),
+    /secret_provider_id and secret_ref must be provided together/
+  );
+
+  await assert.rejects(
+    () =>
+      client.create('example.com', 'user123', {
+        user_name: 'user@example.com',
+        secret_provider_id: 'provider-1',
+        secret_ref: 'op://vault/item'
+      }),
+    /provider-backed vault entries cannot include user_name/
+  );
 });
 
 test('VaultClient.get decrypts entries by default', async () => {
@@ -135,7 +223,7 @@ test('VaultClient.get respects decryptCredentials flag and query filters', async
   assert.equal(result.tfa_secret, encryptedEntry.tfa_secret);
 });
 
-test('VaultClient.update requires explicit fields and encrypts payload', async () => {
+test('VaultClient.update requires identity fields and encrypts payload', async () => {
   const calls = [];
   const client = new VaultClient(async (method, path, body) => {
     calls.push({ method, path, body });
@@ -173,11 +261,50 @@ test('VaultClient.update throws if required fields are missing', async () => {
     () =>
       client.update({
         permissioned_user_id: 'user123',
-        password: 'super-secret',
+        user_name: 'user@example.com'
+      }),
+    /domain is required for vault updates/
+  );
+
+  await assert.rejects(
+    () =>
+      client.update({
+        permissioned_user_id: 'user123',
         domain: 'example.com'
       }),
     /user_name is required for vault updates/
   );
+
+  await assert.rejects(
+    () =>
+      client.update({
+        permissioned_user_id: 'user123',
+        domain: 'example.com',
+        secret_provider_id: null,
+        secret_ref: null
+      }),
+    /user_name is required for vault updates/
+  );
+});
+
+test('VaultClient.update supports provider-backed updates', async () => {
+  const calls = [];
+  const client = new VaultClient(async (method, path, body) => {
+    calls.push({ method, path, body });
+    return body;
+  }, ENCRYPTION_KEY);
+
+  const result = await client.update({
+    permissioned_user_id: 'user123',
+    domain: 'example.com',
+    secret_provider_id: 'provider-1',
+    secret_ref: 'op://vault/item'
+  });
+
+  assert.equal(calls[0].method, 'PUT');
+  assert.equal(calls[0].body.secret_provider_id, 'provider-1');
+  assert.equal(calls[0].body.secret_ref, 'op://vault/item');
+  assert.equal(result.secret_ref, 'op://vault/item');
 });
 
 test('VaultClient.delete forwards delete payload unchanged', async () => {

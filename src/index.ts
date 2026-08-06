@@ -7,6 +7,7 @@ export { CloudCruise } from './CloudCruise.js';
 export type { CloudCruiseParams } from './CloudCruise.js';
 
 export { VaultClient } from './vault/VaultClient.js';
+export { SecretProvidersClient } from './secretProviders/SecretProvidersClient.js';
 export { WorkflowsClient } from './workflows/WorkflowsClient.js';
 export { RunsClient } from './runs/RunsClient.js';
 export { WebhookClient } from './webhook/WebhookClient.js';
@@ -15,7 +16,10 @@ export type {
   VaultEntry,
   GetVaultEntriesFilters,
   ProxyConfig,
-  VaultPostPutHeadersInBody
+  VaultPostPutHeadersInBody,
+  SecretProvider,
+  SecretProviderItem,
+  SecretProviderType
 } from './vault/types.js';
 
 export type {
@@ -48,14 +52,23 @@ export type {
   SseEventName,
   SseMessage,
   RunEventEnvelope,
-  RunHandleEventMap
+  RunHandleEventMap,
+  LiveViewConnection
 } from './runs/types.js';
 
 // Export shared event types
 export { EventType } from './events/types.js';
 export type {
   WebhookMessage,
-  RunEventMessage
+  RunEventMessage,
+  // Modal recovery types (execution.input_required event family)
+  AvailableAction,
+  PopupRetry,
+  PopupContext,
+  InputRequiredReason,
+  ExecutionInputRequiredPayload,
+  // Existing payloads worth surfacing
+  AgentErrorAnalysisPayload
 } from './events/types.js';
 
 export type { WebhookVerificationOptions } from './webhook/types.js';

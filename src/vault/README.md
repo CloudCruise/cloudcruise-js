@@ -63,6 +63,22 @@ const tfa = await client.vault.getTfaCode("user123", "https://example.com");
 // (SMS and magic-link credentials are not supported.)
 ```
 
+### Provider-Backed Credentials
+
+Use `secretProviders` to find a connected 1Password account and item ref, then
+bind a vault entry to that item instead of sending `user_name` / `password`.
+
+```typescript
+const providers = await client.secretProviders.list();
+const items = await client.secretProviders.listItems(providers[0].id);
+
+const entry = await client.vault.create("https://example.com", "user123", {
+  secret_provider_id: providers[0].id,
+  secret_ref: items[0].ref,
+  secret_cache_ttl_seconds: 300,
+});
+```
+
 ### Advanced Configuration
 
 ```typescript
@@ -86,6 +102,21 @@ await client.vault.create("https://app.example.com", "user123", {
     enable: true,
     target_ip: "192.168.1.100",
   },
+});
+
+// Managed proxy via proxy_setting / proxy_value
+await client.vault.create("https://app.example.com", "user123", {
+  proxy_setting: "country", // "random" | "static" | "country" | "custom"
+  proxy_value: "US", // country code for "country"; target IP for "static"
+});
+
+// Custom (bring-your-own) proxy — Enterprise only.
+// proxy_value is encrypted client-side with your workspace key, exactly like
+// password/tfa_secret. Supported forms: socks5://, http://, https:// (with
+// optional user:pass@). A SOCKS5 proxy with UDP support is preferred.
+await client.vault.create("https://app.example.com", "user123", {
+  proxy_setting: "custom",
+  proxy_value: "socks5://user:pass@proxy.example.com:1080",
 });
 ```
 

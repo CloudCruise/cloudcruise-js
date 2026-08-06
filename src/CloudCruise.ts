@@ -1,5 +1,6 @@
 import { getEnv } from './utils/env.js';
 import { VaultClient } from './vault/VaultClient.js';
+import { SecretProvidersClient } from './secretProviders/SecretProvidersClient.js';
 import { WorkflowsClient } from './workflows/WorkflowsClient.js';
 import { RunsClient } from './runs/RunsClient.js';
 import { WebhookClient } from './webhook/WebhookClient.js';
@@ -7,13 +8,15 @@ import { ConnectionManager } from './utils/connectionManager.js';
 import { inputValidationErrorFromResponse } from './workflows/validation.js';
 
 const DEFAULT_BASE_URL = 'https://api.cloudcruise.com';
+const STAGING_BASE_URL = 'https://staging-api.cloudcruise.app';
+const ALLOWED_BASE_URLS = new Set([DEFAULT_BASE_URL, STAGING_BASE_URL]);
 const DEFAULT_API_HOST = new URL(DEFAULT_BASE_URL).host.toLowerCase();
 
 export interface CloudCruiseParams {
   apiKey?: string;
   /**
    * CloudCruise API base URL. Authenticated requests are restricted to the
-   * production CloudCruise API origin.
+   * production CloudCruise API origin or the staging API origin.
    */
   baseUrl?: string;
   encryptionKey?: string;
@@ -44,10 +47,10 @@ function assertBaseUrlAllowed(baseUrl: string): void {
     throw new Error(`Refusing to send CloudCruise API key to "${baseUrl}". The default CloudCruise API host requires https:.`);
   }
 
-  if (baseUrl !== DEFAULT_BASE_URL) {
+  if (!ALLOWED_BASE_URLS.has(baseUrl)) {
     throw new Error(
       `Refusing to send CloudCruise API key to unapproved baseUrl "${baseUrl}". ` +
-      `Authenticated requests are restricted to ${DEFAULT_BASE_URL}.`
+      `Authenticated requests are restricted to: ${Array.from(ALLOWED_BASE_URLS).join(", ")}.`
     );
   }
 }
@@ -58,6 +61,7 @@ export class CloudCruise {
   private readonly encryptionKey: string;
   
   public readonly vault: VaultClient;
+  public readonly secretProviders: SecretProvidersClient;
   public readonly workflows: WorkflowsClient;
   public readonly runs: RunsClient;
   public readonly webhook: WebhookClient;
@@ -85,6 +89,7 @@ export class CloudCruise {
     // Initialize namespace clients
     this.connectionManager = new ConnectionManager(this.baseUrl, this.apiKey);
     this.vault = new VaultClient(this.makeRequest.bind(this), this.encryptionKey);
+    this.secretProviders = new SecretProvidersClient(this.makeRequest.bind(this));
     this.workflows = new WorkflowsClient(this.makeRequest.bind(this));
     this.runs = new RunsClient(this.connectionManager, this.makeRequest.bind(this), this.workflows);
     this.webhook = new WebhookClient();
