@@ -19,6 +19,7 @@ export interface Workflow {
 
 
 export type WorkflowPropertySchema =
+  | boolean
   | string
   | string[]
   | {
@@ -29,10 +30,12 @@ export type WorkflowPropertySchema =
     };
 
 export interface WorkflowInputSchema {
-  type?: 'object';
+  type?: string | string[];
   properties?: Record<string, WorkflowPropertySchema>;
   required?: string[];
-  additionalProperties?: boolean;
+  additionalProperties?: WorkflowPropertySchema;
+  // Preserve all Draft-07 keywords returned by the API.
+  [key: string]: unknown;
 }
 
 export interface WorkflowMetadata {
@@ -45,21 +48,31 @@ export interface InvalidTypeDetail {
   actual: string;
 }
 
+export interface SchemaErrorDetail {
+  instancePath: string;
+  schemaPath: string;
+  keyword: string;
+  message: string;
+}
+
 export class InputValidationError extends Error {
   public readonly missingRequired: string[];
   public readonly invalidTypes: InvalidTypeDetail[];
   public readonly unknownKeys: string[];
+  public readonly schemaErrors: SchemaErrorDetail[];
 
   constructor(
     message: string = 'Input validation failed',
     missingRequired: string[] = [],
     invalidTypes: InvalidTypeDetail[] = [],
-    unknownKeys: string[] = []
+    unknownKeys: string[] = [],
+    schemaErrors: SchemaErrorDetail[] = []
   ) {
     super(message);
     this.name = 'InputValidationError';
     this.missingRequired = missingRequired;
     this.invalidTypes = invalidTypes;
     this.unknownKeys = unknownKeys;
+    this.schemaErrors = schemaErrors;
   }
 }
