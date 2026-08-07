@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1
+
+### Changed
+
+- Workflow metadata types expose `workspace_id` and `vault_schema`, including required credential `type` and `domain` fields.
+
 ## 1.3.0
 
 ### Added

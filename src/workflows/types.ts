@@ -39,8 +39,8 @@ export interface WorkflowInputSchema {
 }
 
 export interface WorkflowVaultCredentialSchema {
-  type?: 'credential';
-  domain?: string;
+  type: 'credential';
+  domain: string;
   example?: string;
 }
 
