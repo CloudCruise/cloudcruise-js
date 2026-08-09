@@ -20,6 +20,8 @@ console.log(workflows);
 
 const metadata = await client.workflows.getWorkflowMetadata("workflow-123");
 console.log(metadata.input_schema);
+console.log(metadata.workspace_id);
+console.log(metadata.vault_schema);
 ```
 
 ### Validating Workflow Input

@@ -14,6 +14,33 @@ function clientFor(schema, nested = false) {
   );
 }
 
+test('returns complete direct and wrapped workflow metadata responses', async () => {
+  const metadata = {
+    input_schema: {
+      type: 'object',
+      properties: { accountId: { type: 'string' } }
+    },
+    workspace_id: '11223344-5566-7788-9900-112233445566',
+    vault_schema: {
+      USER: {
+        type: 'credential',
+        domain: 'https://example.com',
+        example: '22334455-6677-8899-0011-223344556677'
+      }
+    }
+  };
+
+  for (const response of [metadata, { metadata }]) {
+    const client = new WorkflowsClient(async (method, path) => {
+      assert.equal(method, 'GET');
+      assert.equal(path, '/workflows/wf-1/metadata');
+      return response;
+    });
+
+    assert.strictEqual(await client.getWorkflowMetadata('wf-1'), metadata);
+  }
+});
+
 async function validationError(client, payload) {
   let captured;
   await assert.rejects(

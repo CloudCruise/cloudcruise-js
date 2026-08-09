@@ -38,8 +38,21 @@ export interface WorkflowInputSchema {
   [key: string]: unknown;
 }
 
+export interface WorkflowVaultCredentialSchema {
+  type: 'credential';
+  domain: string;
+  example?: string;
+}
+
+export type WorkflowVaultSchema = Record<
+  string,
+  WorkflowVaultCredentialSchema
+>;
+
 export interface WorkflowMetadata {
   input_schema: WorkflowInputSchema;
+  workspace_id?: string;
+  vault_schema?: WorkflowVaultSchema;
 }
 
 export interface InvalidTypeDetail {

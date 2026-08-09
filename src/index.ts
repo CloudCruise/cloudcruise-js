@@ -25,6 +25,8 @@ export type {
 export type {
   Workflow,
   WorkflowInputSchema,
+  WorkflowVaultCredentialSchema,
+  WorkflowVaultSchema,
   WorkflowMetadata,
   InvalidTypeDetail,
   SchemaErrorDetail
