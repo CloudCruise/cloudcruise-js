@@ -3,6 +3,7 @@ import { SimpleEventEmitter } from './events.js';
 import { AsyncEventQueue } from './asyncQueue.js';
 import type { SseMessage, RunEventEnvelope, PingEnvelope } from '../runs/types.js';
 import { EventType } from '../events/types.js';
+import { clientIdentityHeaders } from '../clientIdentity.js';
 
 type EventName = 'open' | 'error' | 'close' | 'ping' | 'run.event' | 'end' | 'reconnect' | 'message';
 type Listener = (e: unknown) => void;
@@ -158,6 +159,7 @@ export class ConnectionManager {
     this.connecting = true;
 
     const headers: Record<string, string> = {
+      ...clientIdentityHeaders(),
       'cc-key': this.apiKey
     };
 
