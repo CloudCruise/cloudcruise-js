@@ -77,6 +77,18 @@ test('REST requests omit X-CloudCruise-Agent when only Replit\'s REPL_ID is set'
   assert.equal(headers.has('x-cloudcruise-agent'), false);
 });
 
+// std-env checks REPL_ID before most other agents, so a coding agent working inside a
+// Replit shell must still be reported under its own name, and REPL_ID must survive.
+test('REST requests send the other agent when it runs inside a Replit shell', async () => {
+  process.env.REPL_ID = 'repl-1';
+  process.env.CODEX_THREAD_ID = 'thread-1';
+
+  const headers = await headersOfRestRequest();
+
+  assert.equal(headers.get('x-cloudcruise-agent'), 'codex');
+  assert.equal(process.env.REPL_ID, 'repl-1');
+});
+
 // Run events stream over a separate SSE connection that does not go through the REST request
 // path; it is API traffic too and must carry the same identification.
 test('the run-events SSE connection identifies the JS SDK and the coding agent', async () => {
