@@ -33,5 +33,10 @@
   },
   "dependencies": {
     "ajv": "^8.20.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "fast-uri": "3.1.8"
+    }
   }
 }
