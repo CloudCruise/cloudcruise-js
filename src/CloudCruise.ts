@@ -6,6 +6,7 @@ import { RunsClient } from './runs/RunsClient.js';
 import { WebhookClient } from './webhook/WebhookClient.js';
 import { ConnectionManager } from './utils/connectionManager.js';
 import { inputValidationErrorFromResponse } from './workflows/validation.js';
+import { clientIdentityHeaders } from './clientIdentity.js';
 
 const DEFAULT_BASE_URL = 'https://api.cloudcruise.com';
 const STAGING_BASE_URL = 'https://staging-api.cloudcruise.app';
@@ -106,6 +107,7 @@ export class CloudCruise {
   ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const headers: HeadersInit = {
+      ...clientIdentityHeaders(),
       'Content-Type': 'application/json',
       'cc-key': this.apiKey
     };

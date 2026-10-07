@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.4.0
+
+### Added
+
+- Requests send `X-CloudCruise-Client: sdk-js/<version>`, plus `X-CloudCruise-Agent: <agent>` when a coding agent runs the SDK.
+- Added `std-env` as a runtime dependency.
+
 ## 1.3.1
 
 ### Changed
