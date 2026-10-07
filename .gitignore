@@ -98,3 +98,6 @@ temp/
 
 # typedoc
 docs/
+
+# Generated from package.json by the build
+src/version.ts

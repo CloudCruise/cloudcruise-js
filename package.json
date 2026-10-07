@@ -19,10 +19,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
-    "dev": "tsc --watch",
+    "build": "node scripts/sync-version.mjs && tsc",
+    "dev": "node scripts/sync-version.mjs && tsc --watch",
     "prepublishOnly": "npm run build",
-    "version": "node scripts/sync-version.mjs && git add src/version.ts",
     "test": "pnpm build && node --test test/*.test.js"
   },
   "devDependencies": {
