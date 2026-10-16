@@ -26,8 +26,11 @@ console.log(metadata.vault_schema);
 
 ### Validating Workflow Input
 
-`RunsClient.start` validates run inputs automatically. Validation can also be
-called directly:
+`RunsClient.start` does not call this method. The server validates
+`run_input_variables` against the input schema of the version that runs, and
+its errors are raised as the same `InputValidationError`. Call
+`validateWorkflowInput` yourself to check a payload against the default
+branch's latest version without starting a run:
 
 ```typescript
 import { CloudCruise, InputValidationError } from "cloudcruise";

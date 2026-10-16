@@ -16,7 +16,8 @@ const client = new CloudCruise({
 });
 
 // Start a workflow run
-// run_input_variables are automatically validated against the input schema specified in the CloudCruise portal.
+// The server validates run_input_variables against the input schema of the version that runs
+// and rejects with InputValidationError if they don't match.
 const run = await client.runs.start({
   workflow_id: "workflow-123",
   run_input_variables: {

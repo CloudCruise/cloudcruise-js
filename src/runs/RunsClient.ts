@@ -69,9 +69,6 @@ export class RunsClient {
     path: string,
     body?: any
   ) => Promise<T>;
-  private readonly workflows?: {
-    validateWorkflowInput: (workflowId: string, payload: Record<string, any>) => Promise<void>;
-  };
   private readonly connectionManager: ConnectionManager;
 
   constructor(
@@ -81,12 +78,11 @@ export class RunsClient {
       path: string,
       body?: any
     ) => Promise<T>,
-    workflows?: {
+    _workflows?: {
       validateWorkflowInput: (workflowId: string, payload: Record<string, any>) => Promise<void>;
     }
   ) {
     this.makeRequest = makeRequest;
-    this.workflows = workflows;
     this.connectionManager = connectionManager;
   }
 
@@ -96,12 +92,6 @@ export class RunsClient {
    */
   async start(request: StartRunRequest, options?: RunStreamOptions): Promise<RunHandle> {
     const body = buildStartRunBody(request);
-    if (this.workflows) {
-      await this.workflows.validateWorkflowInput(
-        request.workflow_id,
-        request.run_input_variables
-      );
-    }
     // Ensure client_id and connection are ready to avoid missing early events
     const clientId = await this.connectionManager.ensureClientId();
     await this.connectionManager.connectIfNeeded();
