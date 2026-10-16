@@ -53,6 +53,45 @@ export interface WorkflowMetadata {
   input_schema: WorkflowInputSchema;
   workspace_id?: string;
   vault_schema?: WorkflowVaultSchema;
+  /** UUID of the workflow version these schemas belong to. */
+  version_id?: string;
+  /** Semantic version of the workflow version these schemas belong to. */
+  version?: string;
+  /** Branch the described version was saved on. */
+  branch_id?: string;
+}
+
+/**
+ * Selects which workflow version to describe, like the pins on `StartRunRequest`.
+ * Set at most one; without either, the default branch's latest version is used.
+ */
+export interface WorkflowVersionSelector {
+  /** Highest release matching an exact version or semver range ("1.2.3", "^1.2.0", "1.x"). */
+  workflow_version?: string | null;
+  /** UUID of a workflow branch; its latest version is used. */
+  workflow_branch_id?: string | null;
+}
+
+export interface WorkflowVersion {
+  version_id: string;
+  version: string;
+  /** Branch the version was saved on. Absent on APIs without branch support. */
+  branch_id?: string;
+  version_note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface WorkflowBranch {
+  id: string;
+  workflow_id: string;
+  name: string;
+  /** Whether unpinned runs use this branch. */
+  is_default: boolean;
+  head_version_id: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface InvalidTypeDetail {
