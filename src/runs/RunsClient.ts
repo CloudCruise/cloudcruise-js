@@ -47,6 +47,22 @@ function verboseLog(operation: string, message: string): void {
   }
 }
 
+const RUN_VERSION_PIN_FIELDS = ['workflow_version', 'workflow_branch_id'] as const;
+
+function buildStartRunBody(request: StartRunRequest): StartRunRequest {
+  const body: StartRunRequest = { ...request };
+  for (const field of RUN_VERSION_PIN_FIELDS) {
+    if (body[field] === undefined || body[field] === null) {
+      delete body[field];
+    }
+  }
+  const pins = RUN_VERSION_PIN_FIELDS.filter(field => field in body);
+  if (pins.length > 1) {
+    throw new Error(`Only one of ${pins.join(', ')} may be provided`);
+  }
+  return body;
+}
+
 export class RunsClient {
   private readonly makeRequest: <T = any>(
     method: 'GET' | 'POST' | 'PUT' | 'DELETE',
@@ -79,6 +95,7 @@ export class RunsClient {
    * The handle exposes sessionId immediately and subscribes to SSE under the hood.
    */
   async start(request: StartRunRequest, options?: RunStreamOptions): Promise<RunHandle> {
+    const body = buildStartRunBody(request);
     if (this.workflows) {
       await this.workflows.validateWorkflowInput(
         request.workflow_id,
@@ -89,7 +106,8 @@ export class RunsClient {
     const clientId = await this.connectionManager.ensureClientId();
     await this.connectionManager.connectIfNeeded();
     request.client_id = clientId;
-    const { session_id } = await this.makeRequest<{ session_id: string }>('POST', '/run', request);
+    body.client_id = clientId;
+    const { session_id } = await this.makeRequest<{ session_id: string }>('POST', '/run', body);
     return this.subscribeToSession(session_id, options);
   }
 
