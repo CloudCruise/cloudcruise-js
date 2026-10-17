@@ -257,6 +257,30 @@ export class RunsClient {
 
   /**
    * Responds to an execution.input_required event whose reason is
+   * "non_dismissible_popup" by choosing one of the decision options by its
+   * label. Pass { save: true } to persist the choice so future matching runs
+   * auto-apply it without pausing.
+   *
+   * Mutually exclusive with submitInputVariables at the endpoint level.
+   *
+   * @param sessionId - The session waiting for input.
+   * @param chosenOption - The exact option label to choose.
+   * @param opts - { save } to persist the choice for future matching runs.
+   */
+  async submitDecision(
+    sessionId: string,
+    chosenOption: string,
+    opts?: { save?: boolean }
+  ): Promise<void> {
+    const path = `/run/${sessionId}/new_input_variables`;
+    await this.makeRequest<void>('POST', path, {
+      chosen_option: chosenOption,
+      save_decision: opts?.save === true,
+    });
+  }
+
+  /**
+   * Responds to an execution.input_required event whose reason is
    * "input_required", "incorrect_form_input", or "multiple_matching_results"
    * by supplying the corrected/required input variables. Backend resumes from
    * the appropriate recovery node with the new values substituted in.

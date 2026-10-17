@@ -153,7 +153,8 @@ client.runs.onInputVariablesRequired(handle, variablesDecider);
 **Both handlers compose** — register both on the same handle if your workflow can hit either family.
 
 **Low-level escape hatches** for full control:
-- `client.runs.submitModalAction(sessionId, actionId)`
+- `client.runs.submitModalAction(sessionId, actionId)` — choose a CTA by its `available_actions` **id** (legacy `modal_action` contract).
+- `client.runs.submitDecision(sessionId, chosenOption, { save })` — choose a decision option by its exact **label** (the `DECISION_REQUIRED` API). Pass `{ save: true }` to persist the choice so future matching runs auto-apply it without pausing. Mutually exclusive with `submitInputVariables` at the endpoint.
 - `client.runs.submitInputVariables(sessionId, dict)`
 - `handle.on("execution.input_required", listener)` for raw event access.
 
