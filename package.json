@@ -1,6 +1,6 @@
 {
   "name": "cloudcruise",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "The official CloudCruise JS/TS client.",
   "homepage": "https://github.com/CloudCruise/cloudcruise-js#readme",
   "bugs": {
