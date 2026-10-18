@@ -56,20 +56,19 @@ export class WorkflowsClient {
     const response = await this.makeRequest<
       WorkflowMetadata | { metadata?: WorkflowMetadata }
     >('GET', path);
-    if (query && response && typeof response === 'object' && !('version_id' in response)) {
-      throw new Error(
-        'This CloudCruise API does not support selecting a workflow version or branch for metadata yet; its response describes the default branch instead'
-      );
-    }
-    if (
+    const metadata =
       response &&
       typeof response === 'object' &&
       !('input_schema' in response) &&
       response.metadata
-    ) {
-      return response.metadata;
+        ? response.metadata
+        : (response as WorkflowMetadata);
+    if (query && metadata && typeof metadata === 'object' && !('version_id' in metadata)) {
+      throw new Error(
+        'This CloudCruise API does not support selecting a workflow version or branch for metadata yet; its response describes the default branch instead'
+      );
     }
-    return response as WorkflowMetadata;
+    return metadata;
   }
 
   /**

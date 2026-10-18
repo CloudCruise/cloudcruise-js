@@ -97,6 +97,18 @@ test('getWorkflowMetadata with a selector rejects a response from an API that ig
   );
 });
 
+// The client already unwraps { metadata: {...} } responses; a selected read in that
+// shape carries version_id inside the wrapper and must not be mistaken for an API
+// that ignored the selector.
+test('getWorkflowMetadata with a selector accepts the wrapped response shape', async () => {
+  const { client } = recordingClient({
+    '/workflows/wf-1/metadata?version=1.2.3': { metadata: PINNED_METADATA },
+  });
+  const metadata = await client.getWorkflowMetadata('wf-1', { workflow_version: '1.2.3' });
+  assert.equal(metadata.version_id, 'version-1-2-3');
+  await client.validateWorkflowInput('wf-1', { field_of_1_x: 'x' }, { workflow_version: '1.2.3' });
+});
+
 // A payload built for an older release must pass against that release's schema even
 // though the latest version requires a different field.
 test('validateWorkflowInput with a selector validates against that version', async () => {
