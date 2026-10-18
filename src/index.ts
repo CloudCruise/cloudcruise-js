@@ -28,6 +28,9 @@ export type {
   WorkflowVaultCredentialSchema,
   WorkflowVaultSchema,
   WorkflowMetadata,
+  WorkflowVersionSelector,
+  WorkflowVersion,
+  WorkflowBranch,
   InvalidTypeDetail,
   SchemaErrorDetail
 } from './workflows/types.js';

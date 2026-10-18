@@ -16,7 +16,8 @@ const client = new CloudCruise({
 });
 
 // Start a workflow run
-// run_input_variables are automatically validated against the input schema specified in the CloudCruise portal.
+// The server validates run_input_variables against the input schema of the version that runs
+// and rejects with InputValidationError if they don't match.
 const run = await client.runs.start({
   workflow_id: "workflow-123",
   run_input_variables: {
@@ -31,6 +32,26 @@ console.log("Session ID:", run.sessionId);
 const result = await run.wait();
 console.log("Run completed:", result.status);
 console.log("Output data:", result.data);
+```
+
+### Pinning a Workflow Version or Branch
+
+By default a run uses the head of the workflow's default branch. Set at most one of `workflow_version` or `workflow_branch_id` to choose a different version; `start()` throws if both are set. Unset fields are left out of the request.
+
+```typescript
+// Run the highest tagged release matching a semver range ("1.2.3", "~1.2.3", "1.x", ">=1.2.3 <2.0.0", ...)
+const pinned = await client.runs.start({
+  workflow_id: "workflow-123",
+  run_input_variables: { target_url: "https://example.com" },
+  workflow_version: "^1.2.0",
+});
+
+// Run the head of a specific workflow branch
+const onBranch = await client.runs.start({
+  workflow_id: "workflow-123",
+  run_input_variables: { target_url: "https://example.com" },
+  workflow_branch_id: "3f0c2a8e-6b1d-4c7e-9a52-1d8e4f6b7c90",
+});
 ```
 
 ### Real-time Event Streaming

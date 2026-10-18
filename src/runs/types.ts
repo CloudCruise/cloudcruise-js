@@ -65,6 +65,17 @@ export interface StartRunRequest {
   webhook?: PayloadWebhook;
   additional_context?: Record<string, any>;
   client_id?: string;
+  /**
+   * Runs the highest tagged release of the workflow matching this exact
+   * version ("1.2.3") or semver range ("^1.2.0", "~1.2.3", "1.x",
+   * ">=1.2.3 <2.0.0"). Mutually exclusive with `workflow_branch_id`.
+   */
+  workflow_version?: string;
+  /**
+   * Runs the head of this workflow branch (uuid) instead of the default
+   * branch. Mutually exclusive with `workflow_version`.
+   */
+  workflow_branch_id?: string;
 }
 
 export interface StartRunResponse {
