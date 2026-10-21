@@ -7,7 +7,7 @@ export enum EventType {
   ExecutionQueued = "execution.queued",
   ExecutionStart = "execution.start",
   ExecutionStep = "execution.step",
-  ExecutionPause = "execution.pause",
+  ExecutionPause = "execution.paused",
   ExecutionStopped = "execution.stopped",
   ExecutionFailed = "execution.failed",
   ExecutionSuccess = "execution.success",
