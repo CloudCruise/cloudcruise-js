@@ -70,7 +70,19 @@ export type {
   InputRequiredReason,
   ExecutionInputRequiredPayload,
   // Existing payloads worth surfacing
-  AgentErrorAnalysisPayload
+  AgentErrorAnalysisPayload,
+  PasswordRecoveryPhase,
+  PasswordRecoveryResumeMode,
+  ExecutionPasswordRecoveryPayload,
+  ExecutionPasswordUpdatedPayload,
+  RecoveryErrorCategory,
+  RecoveryOutcome,
+  RecoveryWebhookEventPayload,
+  AgentRecoveryPayload,
+  DecisionOutcome,
+  DecisionAnsweredVia,
+  AgentDecisionRequestedPayload,
+  AgentDecisionAnsweredPayload
 } from './events/types.js';
 
 export type { WebhookVerificationOptions } from './webhook/types.js';

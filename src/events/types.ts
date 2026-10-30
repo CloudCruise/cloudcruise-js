@@ -20,6 +20,12 @@ export enum EventType {
   InteractionFailed = "interaction.failed",
   AgentErrorAnalysis = "agent.error_analysis",
   ExecutionInputRequired = "execution.input_required",
+  ExecutionPasswordRecovery = "execution.password_recovery",
+  ExecutionPasswordUpdated = "execution.password_updated",
+  AgentTfaSetupRecovery = "agent.tfa_setup_recovery",
+  AgentRecovery = "agent.recovery",
+  AgentDecisionRequested = "agent.decision_requested",
+  AgentDecisionAnswered = "agent.decision_answered",
 }
 
 // Payload type definitions
@@ -131,6 +137,79 @@ export interface ExecutionInputRequiredPayload {
   popup_context?: PopupContext;  // present iff reason === "non_dismissible_popup"
 }
 
+export type PasswordRecoveryPhase =
+  | "started"
+  | "analyzing_form"
+  | "submitting"
+  | "verifying"
+  | "resuming"
+  | "completed"
+  | "failed";
+
+export type PasswordRecoveryResumeMode = "login" | "original_node";
+
+export interface ExecutionPasswordRecoveryPayload {
+  session_id: string;
+  workflow_id: string;
+  phase: PasswordRecoveryPhase;
+  message: string;
+  resume_mode?: PasswordRecoveryResumeMode;
+}
+
+export interface ExecutionPasswordUpdatedPayload {
+  session_id: string;
+  workflow_id: string;
+}
+
+export type RecoveryErrorCategory =
+  | "XPATH_INCORRECT"
+  | "INCORRECT_INPUTS"
+  | "UNEXPECTED_UI_STATE"
+  | "AUTHENTICATION_ERROR"
+  | "PASSWORD_UPDATE_REQUIRED"
+  | "PAGE_STILL_LOADING"
+  | "SERVICE_UNAVAILABLE"
+  | "NOT_CONFIDENT"
+  | "INTERNAL_ERROR"
+  | "IGNORE_ERROR";
+
+export type RecoveryOutcome = "resume" | "requeue" | "fail";
+
+export interface RecoveryWebhookEventPayload {
+  category: RecoveryErrorCategory;
+  subType: string | null;
+  outcome: RecoveryOutcome;
+  resumeNodeTitle: string | null;
+}
+
+export interface AgentRecoveryPayload extends RecoveryWebhookEventPayload {
+  session_id: string;
+  workflow_id: string;
+}
+
+export type DecisionOutcome = "answered" | "declined" | "expired";
+
+export type DecisionAnsweredVia = "slack" | "web" | "api";
+
+export interface AgentDecisionRequestedPayload {
+  session_id: string;
+  workflow_id: string;
+  decision_request_id: string;
+  requested_at: string;
+  expires_at: string;
+}
+
+export interface AgentDecisionAnsweredPayload {
+  session_id: string;
+  workflow_id: string;
+  decision_request_id: string;
+  requested_at: string;
+  answered_at: string;
+  expires_at: string;
+  outcome: DecisionOutcome;
+  answered_via?: DecisionAnsweredVia;
+}
+
 export interface ExecutionRequeuedPayload {
   session_id: string;
   workflow_id: string;
@@ -212,6 +291,12 @@ export type EventPayloadMap = {
   [EventType.ExecutionPause]: never;
   [EventType.InteractionFailed]: never;
   [EventType.ExecutionInputRequired]: ExecutionInputRequiredPayload;
+  [EventType.ExecutionPasswordRecovery]: ExecutionPasswordRecoveryPayload;
+  [EventType.ExecutionPasswordUpdated]: ExecutionPasswordUpdatedPayload;
+  [EventType.AgentTfaSetupRecovery]: never;
+  [EventType.AgentRecovery]: AgentRecoveryPayload;
+  [EventType.AgentDecisionRequested]: AgentDecisionRequestedPayload;
+  [EventType.AgentDecisionAnswered]: AgentDecisionAnsweredPayload;
 };
 
 // Webhook message format
