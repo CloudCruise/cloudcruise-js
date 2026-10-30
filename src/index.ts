@@ -79,8 +79,10 @@ export type {
   RecoveryOutcome,
   RecoveryWebhookEventPayload,
   AgentRecoveryPayload,
-  DecisionOutcome,
-  DecisionAnsweredVia,
+  DecisionWebhookOutcome,
+  DecisionWebhookAnsweredVia,
+  DecisionRequestedWebhookEventPayload,
+  DecisionAnsweredWebhookEventPayload,
   AgentDecisionRequestedPayload,
   AgentDecisionAnsweredPayload
 } from './events/types.js';

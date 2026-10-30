@@ -187,27 +187,39 @@ export interface AgentRecoveryPayload extends RecoveryWebhookEventPayload {
   workflow_id: string;
 }
 
-export type DecisionOutcome = "answered" | "declined" | "expired";
+export type DecisionWebhookOutcome =
+  | "answered"
+  | "declined"
+  | "expired"
+  | "cancelled";
 
-export type DecisionAnsweredVia = "slack" | "web" | "api";
+export type DecisionWebhookAnsweredVia = "slack" | "web" | "api";
 
-export interface AgentDecisionRequestedPayload {
-  session_id: string;
-  workflow_id: string;
-  decision_request_id: string;
+export interface DecisionRequestedWebhookEventPayload {
+  decision_id: string;
   requested_at: string;
   expires_at: string;
 }
 
-export interface AgentDecisionAnsweredPayload {
+export interface DecisionAnsweredWebhookEventPayload {
+  decision_id: string;
+  requested_at: string;
+  resolved_at: string;
+  answered_at: string | null;
+  outcome: DecisionWebhookOutcome;
+  answered_via: DecisionWebhookAnsweredVia | null;
+}
+
+export interface AgentDecisionRequestedPayload
+  extends DecisionRequestedWebhookEventPayload {
   session_id: string;
   workflow_id: string;
-  decision_request_id: string;
-  requested_at: string;
-  answered_at: string;
-  expires_at: string;
-  outcome: DecisionOutcome;
-  answered_via?: DecisionAnsweredVia;
+}
+
+export interface AgentDecisionAnsweredPayload
+  extends DecisionAnsweredWebhookEventPayload {
+  session_id: string;
+  workflow_id: string;
 }
 
 export interface ExecutionRequeuedPayload {
