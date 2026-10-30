@@ -191,7 +191,8 @@ export type DecisionWebhookOutcome =
   | "answered"
   | "declined"
   | "expired"
-  | "cancelled";
+  | "cancelled"
+  | "failed";
 
 export type DecisionWebhookAnsweredVia = "slack" | "web" | "api";
 
