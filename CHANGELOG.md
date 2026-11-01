@@ -7,9 +7,9 @@
 - `EventType` covers every event the API sends: `agent.recovery`, `execution.password_recovery`, `execution.password_updated`, and `agent.tfa_setup_recovery`, with typed payloads for the first three. The `agent.recovery` payload is `AgentRecoveryPayload`: category, sub-type, outcome and resume node title, plus session and workflow ids.
 - Decision Required events `agent.decision_requested` and `agent.decision_answered`, typed as `AgentDecisionRequestedPayload` and `AgentDecisionAnsweredPayload`. `agent.decision_requested` carries `decision_id`, `question`, `context`, `fields` (ids, labels, types, options), `free_text` and `respond_url` (POST the answer there); `agent.decision_answered` carries `outcome` (`answered`, `declined`, `expired`, `cancelled`, `failed`) and, when someone answered, `answered_via`, `answered_by` and `answer` (`values`, `text`, `directive`). Session and workflow ids come first, the run's metadata is in the envelope, and optional keys are omitted rather than null.
 
-### Changed
+### Removed (breaking)
 
-- The API no longer sends `execution.input_required`: runs do not pause to wait for corrected input variables. A consequential popup is reported through `agent.decision_requested` / `agent.decision_answered` when Decision Required handles the run, and otherwise fails the run with `execution.failed`. The event type, its payload types and the input-variable handlers stay for compatibility and for the history of earlier runs.
+- `execution.input_required` is gone from the API, so it is gone here too: `EventType.ExecutionInputRequired`, `ExecutionInputRequiredPayload`, `InputRequiredReason`, `PopupContext`, `AvailableAction`, `PopupRetry`, and the `runs` helpers `submitModalAction`, `submitInputVariables`, `onPopupDecisionRequired` and `onInputVariablesRequired` (the `/run/{session_id}/new_input_variables` endpoint they called no longer exists). Consequential popups are reported through `agent.decision_requested` / `agent.decision_answered` and answered at the event's `respond_url`.
 
 ## 1.4.1
 

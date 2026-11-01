@@ -19,7 +19,6 @@ export enum EventType {
   InteractionFinished = "interaction.finished",
   InteractionFailed = "interaction.failed",
   AgentErrorAnalysis = "agent.error_analysis",
-  ExecutionInputRequired = "execution.input_required",
   ExecutionPasswordRecovery = "execution.password_recovery",
   ExecutionPasswordUpdated = "execution.password_updated",
   AgentTfaSetupRecovery = "agent.tfa_setup_recovery",
@@ -92,49 +91,6 @@ export interface AgentErrorAnalysisPayload {
   outcome?: "success" | "failure";
   host?: string;
   popup_signature?: string;
-}
-
-// === Non-dismissible modal recovery types ===
-// When a workflow click is blocked by a modal the worker cannot dismiss on
-// its own, the backend emits an execution.input_required event with
-// reason="non_dismissible_popup" and a popup_context block carrying the
-// visible CTA buttons (available_actions) plus a per-session retry counter.
-// Customers respond via client.runs.submitModalAction(sessionId, actionId).
-export interface AvailableAction {
-  id: string;
-  label: string;
-}
-
-export interface PopupRetry {
-  attempt: number;
-  max_attempts: number;
-}
-
-export interface PopupContext {
-  error_description: string;
-  error_sub_type?: string;
-  full_url?: string;
-  available_actions: AvailableAction[];
-  retry: PopupRetry;
-}
-
-// Discriminator for which recovery path needs input:
-//   "input_required":             workflow missing a required variable
-//   "incorrect_form_input":       form rejected the typed value
-//   "multiple_matching_results":  extractor needs disambiguation
-//   "non_dismissible_popup":      modal CTA needs to be picked (popup_context set)
-export type InputRequiredReason =
-  | "input_required"
-  | "incorrect_form_input"
-  | "multiple_matching_results"
-  | "non_dismissible_popup";
-
-export interface ExecutionInputRequiredPayload {
-  session_id: string;
-  input_variables: Record<string, any>;
-  screenshot_url: string | null;
-  reason?: InputRequiredReason;
-  popup_context?: PopupContext;  // present iff reason === "non_dismissible_popup"
 }
 
 export type PasswordRecoveryPhase =
@@ -333,7 +289,6 @@ export type EventPayloadMap = {
   [EventType.VideoUploaded]: never;
   [EventType.ExecutionPause]: never;
   [EventType.InteractionFailed]: never;
-  [EventType.ExecutionInputRequired]: ExecutionInputRequiredPayload;
   [EventType.ExecutionPasswordRecovery]: ExecutionPasswordRecoveryPayload;
   [EventType.ExecutionPasswordUpdated]: ExecutionPasswordUpdatedPayload;
   [EventType.AgentTfaSetupRecovery]: never;

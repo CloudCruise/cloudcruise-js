@@ -11,7 +11,6 @@ test('EventType values equal the event strings the API sends, including recovery
     'agent.recovery',
     'agent.tfa_setup_recovery',
     'execution.failed',
-    'execution.input_required',
     'execution.password_recovery',
     'execution.password_updated',
     'execution.paused',
