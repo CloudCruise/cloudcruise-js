@@ -176,11 +176,14 @@ export interface DecisionWebhookField {
 
 export interface DecisionRequestedWebhookEventPayload {
   decision_id: string;
+  answer_by: string;
   question: string;
   context: string;
   fields: DecisionWebhookField[];
   free_text: boolean;
   respond_url: string;
+  signed_screenshot_url?: string;
+  signed_screenshot_url_expires?: string;
 }
 
 export interface DecisionWebhookAnswer {
