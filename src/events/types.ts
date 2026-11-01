@@ -203,73 +203,42 @@ export type DecisionWebhookFieldValue = string | number | boolean | string[];
 export interface DecisionWebhookOption {
   id: string;
   label: string;
-  description: string | null;
-  note: string | null;
+  note?: string;
 }
 
 export interface DecisionWebhookField {
   id: string;
-  type: string;
   label: string;
-  required: boolean;
-  options: DecisionWebhookOption[] | null;
-  placeholder: string | null;
-  hint: string | null;
-  min: number | null;
-  max: number | null;
-}
-
-export interface DecisionWebhookRespond {
-  method: "POST";
-  path: string;
-  url: string | null;
-  body: {
-    decision_id: string;
-    values: Record<string, string>;
-    text: string;
-    directive: string;
-  };
+  type: string;
+  options?: DecisionWebhookOption[];
+  required?: false;
+  min?: number;
+  max?: number;
+  placeholder?: string;
+  hint?: string;
 }
 
 export interface DecisionRequestedWebhookEventPayload {
   decision_id: string;
-  requested_at: string;
-  expires_at: string;
   question: string;
   context: string;
-  headline: string | null;
-  run_so_far: string | null;
-  kind: string | null;
-  error_code_label: string | null;
-  workflow_name: string | null;
-  run_url: string;
   fields: DecisionWebhookField[];
-  accepts_free_text: boolean;
-  directives: DecisionWebhookDirective[];
-  respond: DecisionWebhookRespond;
+  free_text: boolean;
+  respond_url: string;
 }
 
 export interface DecisionWebhookAnswer {
-  text: string | null;
-  values: Record<string, DecisionWebhookFieldValue>;
-  directive: DecisionWebhookDirective | null;
-  summary: string;
-}
-
-export interface DecisionWebhookAnsweredBy {
-  type: "slack_user" | "user" | "api_key";
-  id: string;
+  values?: Record<string, DecisionWebhookFieldValue>;
+  text?: string;
+  directive?: DecisionWebhookDirective;
 }
 
 export interface DecisionAnsweredWebhookEventPayload {
   decision_id: string;
-  requested_at: string;
-  resolved_at: string;
-  answered_at: string | null;
   outcome: DecisionWebhookOutcome;
-  answered_via: DecisionWebhookAnsweredVia | null;
-  answered_by: DecisionWebhookAnsweredBy | null;
-  answer: DecisionWebhookAnswer | null;
+  answered_via?: DecisionWebhookAnsweredVia;
+  answered_by?: string;
+  answer?: DecisionWebhookAnswer;
 }
 
 export interface AgentDecisionRequestedPayload
