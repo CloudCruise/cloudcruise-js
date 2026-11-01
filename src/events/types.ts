@@ -196,10 +196,69 @@ export type DecisionWebhookOutcome =
 
 export type DecisionWebhookAnsweredVia = "slack" | "web" | "api";
 
+export type DecisionWebhookDirective = "requeue" | "add_error_code" | "fail";
+
+export type DecisionWebhookFieldValue = string | number | boolean | string[];
+
+export interface DecisionWebhookOption {
+  id: string;
+  label: string;
+  description: string | null;
+  note: string | null;
+}
+
+export interface DecisionWebhookField {
+  id: string;
+  type: string;
+  label: string;
+  required: boolean;
+  options: DecisionWebhookOption[] | null;
+  placeholder: string | null;
+  hint: string | null;
+  min: number | null;
+  max: number | null;
+}
+
+export interface DecisionWebhookRespond {
+  method: "POST";
+  path: string;
+  url: string | null;
+  body: {
+    decision_id: string;
+    values: Record<string, string>;
+    text: string;
+    directive: string;
+  };
+}
+
 export interface DecisionRequestedWebhookEventPayload {
   decision_id: string;
   requested_at: string;
   expires_at: string;
+  question: string;
+  context: string;
+  headline: string | null;
+  run_so_far: string | null;
+  kind: string | null;
+  error_code_label: string | null;
+  workflow_name: string | null;
+  run_url: string;
+  fields: DecisionWebhookField[];
+  accepts_free_text: boolean;
+  directives: DecisionWebhookDirective[];
+  respond: DecisionWebhookRespond;
+}
+
+export interface DecisionWebhookAnswer {
+  text: string | null;
+  values: Record<string, DecisionWebhookFieldValue>;
+  directive: DecisionWebhookDirective | null;
+  summary: string;
+}
+
+export interface DecisionWebhookAnsweredBy {
+  type: "slack_user" | "user" | "api_key";
+  id: string;
 }
 
 export interface DecisionAnsweredWebhookEventPayload {
@@ -209,6 +268,8 @@ export interface DecisionAnsweredWebhookEventPayload {
   answered_at: string | null;
   outcome: DecisionWebhookOutcome;
   answered_via: DecisionWebhookAnsweredVia | null;
+  answered_by: DecisionWebhookAnsweredBy | null;
+  answer: DecisionWebhookAnswer | null;
 }
 
 export interface AgentDecisionRequestedPayload
