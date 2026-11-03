@@ -3,16 +3,12 @@ import assert from 'node:assert/strict';
 
 import { EventType } from '../dist/index.js';
 
-test('EventType values equal the event strings the API sends, including recovery and Decision Required events', () => {
+test('EventType values equal the event strings the API sends, including the Decision Required events and not the removed execution.input_required', () => {
   assert.deepEqual(Object.values(EventType).sort(), [
     'agent.decision_answered',
     'agent.decision_requested',
     'agent.error_analysis',
-    'agent.recovery',
-    'agent.tfa_setup_recovery',
     'execution.failed',
-    'execution.password_recovery',
-    'execution.password_updated',
     'execution.paused',
     'execution.queued',
     'execution.requeued',

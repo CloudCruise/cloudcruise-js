@@ -19,10 +19,6 @@ export enum EventType {
   InteractionFinished = "interaction.finished",
   InteractionFailed = "interaction.failed",
   AgentErrorAnalysis = "agent.error_analysis",
-  ExecutionPasswordRecovery = "execution.password_recovery",
-  ExecutionPasswordUpdated = "execution.password_updated",
-  AgentTfaSetupRecovery = "agent.tfa_setup_recovery",
-  AgentRecovery = "agent.recovery",
   AgentDecisionRequested = "agent.decision_requested",
   AgentDecisionAnswered = "agent.decision_answered",
 }
@@ -91,56 +87,6 @@ export interface AgentErrorAnalysisPayload {
   outcome?: "success" | "failure";
   host?: string;
   popup_signature?: string;
-}
-
-export type PasswordRecoveryPhase =
-  | "started"
-  | "analyzing_form"
-  | "submitting"
-  | "verifying"
-  | "resuming"
-  | "completed"
-  | "failed";
-
-export type PasswordRecoveryResumeMode = "login" | "original_node";
-
-export interface ExecutionPasswordRecoveryPayload {
-  session_id: string;
-  workflow_id: string;
-  phase: PasswordRecoveryPhase;
-  message: string;
-  resume_mode?: PasswordRecoveryResumeMode;
-}
-
-export interface ExecutionPasswordUpdatedPayload {
-  session_id: string;
-  workflow_id: string;
-}
-
-export type RecoveryErrorCategory =
-  | "XPATH_INCORRECT"
-  | "INCORRECT_INPUTS"
-  | "UNEXPECTED_UI_STATE"
-  | "AUTHENTICATION_ERROR"
-  | "PASSWORD_UPDATE_REQUIRED"
-  | "PAGE_STILL_LOADING"
-  | "SERVICE_UNAVAILABLE"
-  | "NOT_CONFIDENT"
-  | "INTERNAL_ERROR"
-  | "IGNORE_ERROR";
-
-export type RecoveryOutcome = "resume" | "requeue" | "fail";
-
-export interface RecoveryWebhookEventPayload {
-  category: RecoveryErrorCategory;
-  subType: string | null;
-  outcome: RecoveryOutcome;
-  resumeNodeTitle: string | null;
-}
-
-export interface AgentRecoveryPayload extends RecoveryWebhookEventPayload {
-  session_id: string;
-  workflow_id: string;
 }
 
 export type DecisionWebhookOutcome =
@@ -292,10 +238,6 @@ export type EventPayloadMap = {
   [EventType.VideoUploaded]: never;
   [EventType.ExecutionPause]: never;
   [EventType.InteractionFailed]: never;
-  [EventType.ExecutionPasswordRecovery]: ExecutionPasswordRecoveryPayload;
-  [EventType.ExecutionPasswordUpdated]: ExecutionPasswordUpdatedPayload;
-  [EventType.AgentTfaSetupRecovery]: never;
-  [EventType.AgentRecovery]: AgentRecoveryPayload;
   [EventType.AgentDecisionRequested]: AgentDecisionRequestedPayload;
   [EventType.AgentDecisionAnswered]: AgentDecisionAnsweredPayload;
 };
