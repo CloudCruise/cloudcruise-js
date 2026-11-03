@@ -114,12 +114,13 @@ app.post("/webhook", async (req, res) => {
   const message = client.webhook.verifySignature(req.body, req.headers["x-hmac-signature"], "webhook-secret");
   if (message.event === EventType.AgentDecisionRequested) {
     const decision = message.payload as AgentDecisionRequestedPayload;
+    const choice = decision.fields.find((field) => field.options?.length);
     const response = await fetch(decision.respond_url, {
       method: "POST",
       headers: { "cc-key": process.env.CLOUDCRUISE_API_KEY!, "Content-Type": "application/json" },
       body: JSON.stringify({
         decision_id: decision.decision_id,
-        values: { [decision.fields[0].id]: decision.fields[0].options?.[0]?.id },
+        ...(choice && { values: { [choice.id]: choice.options![0].id } }),
         text: "Use the existing record.",
       }),
     });
