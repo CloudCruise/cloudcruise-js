@@ -103,6 +103,34 @@ run.on("run.event", async (event) => {
 });
 ```
 
+### Decision Required
+
+When the recovery agent needs a person to decide, a webhook subscribed to `agent.decision_requested` receives the question. Answer it by POSTing to the payload's `respond_url` with your API key in `cc-key`. See [Answer a decision](https://docs.cloudcruise.com/run-api/answer-a-decision).
+
+```typescript
+import { EventType, type AgentDecisionRequestedPayload } from "cloudcruise";
+
+app.post("/webhook", async (req, res) => {
+  const message = client.webhook.verifySignature(req.body, req.headers["x-hmac-signature"], "webhook-secret");
+  if (message.event === EventType.AgentDecisionRequested) {
+    const decision = message.payload as AgentDecisionRequestedPayload;
+    const response = await fetch(decision.respond_url, {
+      method: "POST",
+      headers: { "cc-key": process.env.CLOUDCRUISE_API_KEY!, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        decision_id: decision.decision_id,
+        values: { [decision.fields[0].id]: decision.fields[0].options?.[0]?.id },
+        text: "Use the existing record.",
+      }),
+    });
+    // 200: accepted, the run resumes. 404: already answered, expired or cancelled. 409: answered elsewhere at the same moment.
+  }
+  res.status(200).json({ status: "received" });
+});
+```
+
+`values` is keyed by field `id`, using the option `id` for choice fields. Send at least one of `values`, `text` or `directive` (`requeue`, `add_error_code`, `fail`). The outcome arrives as `agent.decision_answered`.
+
 ### Advanced Options
 
 ```typescript
