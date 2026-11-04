@@ -130,6 +130,8 @@ app.post("/webhook", async (req, res) => {
 });
 ```
 
+The SDK also wraps the call: `client.runs.respondToDecision(decision.session_id, decision.decision_id, { values, text, directive })` sends the same body to `/run/{session_id}/decision/respond` and returns `{ status: "accepted", decision_id }`.
+
 `values` is keyed by field `id`, using the option `id` for choice fields. Send at least one of `values`, `text` or `directive` (`requeue`, `add_error_code`, `fail`). The outcome arrives as `agent.decision_answered`.
 
 ### Advanced Options
