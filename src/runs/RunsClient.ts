@@ -10,7 +10,7 @@ import type {
   LiveViewConnection,
 } from './types.js';
 import { EventType } from '../events/types.js';
-import type { PopupContext, ExecutionInputRequiredPayload, DecisionWebhookAnswer } from '../events/types.js';
+import type { PopupContext, ExecutionInputRequiredPayload, DecisionWebhookAnswer, PendingDecisionResponse } from '../events/types.js';
 import { AsyncEventQueue } from '../utils/asyncQueue.js';
 import { SimpleEventEmitter } from '../utils/events.js';
 import { ConnectionManager } from '../utils/connectionManager.js';
@@ -421,6 +421,21 @@ export class RunsClient {
     };
     const unsubscribe = handle.on(EventType.ExecutionInputRequired, listener as any);
     return typeof unsubscribe === 'function' ? unsubscribe : () => {};
+  }
+
+  /**
+   * Reads the decision the recovery agent is waiting on for a run (Decision
+   * Required), in the shape of the agent.decision_requested event: decision_id,
+   * answer_by, question, context, fields with their ids and options, free_text
+   * and respond_url. `decision` is null when nothing is pending, and
+   * `answered_decision_id` is set when a decision on this run was already
+   * answered. Only reads runs in the key's own workspace.
+   *
+   * @param sessionId - The session that asked the decision.
+   */
+  async getPendingDecision(sessionId: string): Promise<PendingDecisionResponse> {
+    const path = `/run/${sessionId}/decision/pending`;
+    return this.makeRequest<PendingDecisionResponse>('GET', path);
   }
 
   /**

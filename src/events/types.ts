@@ -178,6 +178,21 @@ export interface DecisionRequestedWebhookEventPayload {
   signed_screenshot_url_expires?: string;
 }
 
+export interface PendingDecision {
+  decision_id: string;
+  answer_by: string;
+  question: string;
+  context: string;
+  fields: DecisionWebhookField[];
+  free_text: boolean;
+  respond_url: string;
+}
+
+export interface PendingDecisionResponse {
+  decision: PendingDecision | null;
+  answered_decision_id: string | null;
+}
+
 export interface DecisionWebhookAnswer {
   values?: Record<string, DecisionWebhookFieldValue>;
   text?: string;

@@ -79,6 +79,8 @@ export type {
   DecisionWebhookField,
   DecisionWebhookAnswer,
   DecisionRequestedWebhookEventPayload,
+  PendingDecision,
+  PendingDecisionResponse,
   DecisionAnsweredWebhookEventPayload,
   AgentDecisionRequestedPayload,
   AgentDecisionAnsweredPayload

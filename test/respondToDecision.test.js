@@ -39,3 +39,27 @@ test('respondToDecision sends a directive alone, and every body key is one the A
     assert.ok(accepted.includes(key), `the API accepts ${key}`);
   }
 });
+
+test('getPendingDecision reads the run\'s pending decision and returns the API response unchanged', async () => {
+  const response = {
+    decision: {
+      decision_id: 'dec-1',
+      answer_by: '2026-11-04T20:00:00.000Z',
+      question: 'Which record should be kept?',
+      context: 'Two matching records',
+      fields: [{ id: 'choice', label: 'Record', type: 'single_choice', options: [{ id: 'keep', label: 'Keep' }] }],
+      free_text: true,
+      respond_url: 'https://api.example.test/run/sess-1/decision/respond',
+    },
+    answered_decision_id: null,
+  };
+  const { client, calls } = makeClient(response);
+  const result = await client.getPendingDecision('sess-1');
+  assert.deepEqual(calls, [{ method: 'GET', path: '/run/sess-1/decision/pending', body: undefined }]);
+  assert.deepEqual(result, response);
+});
+
+test('getPendingDecision passes through a run with nothing pending and the id of an answered decision', async () => {
+  const { client } = makeClient({ decision: null, answered_decision_id: 'dec-1' });
+  assert.deepEqual(await client.getPendingDecision('sess-1'), { decision: null, answered_decision_id: 'dec-1' });
+});
