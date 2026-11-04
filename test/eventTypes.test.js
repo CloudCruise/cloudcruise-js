@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 
 import { EventType } from '../dist/index.js';
 
-test('EventType values equal the event strings the API sends, including the Decision Required events and not the removed execution.input_required', () => {
+test('EventType values equal the event strings the API sends, including the Decision Required events and the deprecated execution.input_required', () => {
   assert.deepEqual(Object.values(EventType).sort(), [
     'agent.decision_answered',
     'agent.decision_requested',
     'agent.error_analysis',
     'execution.failed',
+    'execution.input_required',
     'execution.paused',
     'execution.queued',
     'execution.requeued',

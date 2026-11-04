@@ -54,18 +54,17 @@ const requested = contract.decision_requested;
 const answered = contract.decision_answered;
 const respond = contract.decision_respond_request;
 
-test('both Decision Required events are in EventType, are subscribable webhooks in the API, and execution.input_required is gone from both', () => {
+test('both Decision Required events are in EventType and are subscribable webhooks in the API, and the API no longer lets a webhook subscribe to execution.input_required', () => {
   const sdkEvents = Object.values(EventType);
   for (const event of ['agent.decision_requested', 'agent.decision_answered']) {
     assert.ok(sdkEvents.includes(event), `EventType has ${event}`);
     assert.ok(contract.subscribable_events.includes(event), `the API lets a webhook subscribe to ${event}`);
     assert.ok(contract.webhooks.includes(event), `the API documents the ${event} payload`);
   }
-  assert.ok(!sdkEvents.includes('execution.input_required'));
   assert.ok(!contract.subscribable_events.includes('execution.input_required'));
 });
 
-test('the API serves the decision answer endpoint and no longer serves new_input_variables, which the removed runs helpers called', () => {
+test('the API serves the decision answer endpoint and no longer serves new_input_variables, which the deprecated runs helpers call', () => {
   assert.ok(contract.paths.includes('/run/{session_id}/decision/respond'));
   assert.ok(!contract.paths.includes('/run/{session_id}/new_input_variables'));
 });
