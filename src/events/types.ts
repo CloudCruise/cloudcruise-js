@@ -20,6 +20,8 @@ export enum EventType {
   InteractionFailed = "interaction.failed",
   AgentErrorAnalysis = "agent.error_analysis",
   ExecutionInputRequired = "execution.input_required",
+  AgentDecisionRequested = "agent.decision_requested",
+  AgentDecisionAnswered = "agent.decision_answered",
 }
 
 // Payload type definitions
@@ -131,6 +133,75 @@ export interface ExecutionInputRequiredPayload {
   popup_context?: PopupContext;  // present iff reason === "non_dismissible_popup"
 }
 
+// === Decision Required ===
+// The recovery agent asks a human to decide. agent.decision_requested carries
+// the question and respond_url; answer with client.runs.respondToDecision.
+export type DecisionFieldType =
+  | "single_choice"
+  | "multi_choice"
+  | "dropdown"
+  | "date"
+  | "time"
+  | "datetime"
+  | "text"
+  | "number"
+  | "confirm";
+
+export interface DecisionFieldOption {
+  id: string;
+  label: string;
+  note?: string;
+}
+
+export interface DecisionField {
+  id: string;
+  label: string;
+  type: DecisionFieldType;
+  options?: DecisionFieldOption[];
+  required?: false;
+  min?: number;
+  max?: number;
+  placeholder?: string;
+  hint?: string;
+}
+
+export type DecisionDirective = "requeue" | "add_error_code" | "fail";
+
+export interface DecisionAnswer {
+  values?: Record<string, any>;
+  text?: string;
+  directive?: DecisionDirective;
+}
+
+export interface AgentDecisionRequestedPayload {
+  session_id: string;
+  workflow_id: string;
+  decision_id: string;
+  answer_by: string;
+  question: string;
+  context: string;
+  fields: DecisionField[];
+  free_text: boolean;
+  respond_url: string;
+  signed_screenshot_url?: string;
+  signed_screenshot_url_expires?: string;
+}
+
+export interface AgentDecisionAnsweredPayload {
+  session_id: string;
+  workflow_id: string;
+  decision_id: string;
+  outcome: "answered" | "declined" | "expired" | "cancelled" | "failed";
+  answered_via?: "slack" | "web" | "api";
+  answered_by?: string;
+  answer?: DecisionAnswer;
+}
+
+export interface DecisionRespondResponse {
+  status: "accepted";
+  decision_id: string;
+}
+
 export interface ExecutionRequeuedPayload {
   session_id: string;
   workflow_id: string;
@@ -212,6 +283,8 @@ export type EventPayloadMap = {
   [EventType.ExecutionPause]: never;
   [EventType.InteractionFailed]: never;
   [EventType.ExecutionInputRequired]: ExecutionInputRequiredPayload;
+  [EventType.AgentDecisionRequested]: AgentDecisionRequestedPayload;
+  [EventType.AgentDecisionAnswered]: AgentDecisionAnsweredPayload;
 };
 
 // Webhook message format

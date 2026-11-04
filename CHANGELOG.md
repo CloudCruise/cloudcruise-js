@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `client.runs.respondToDecision(sessionId, decisionId, { values, text, directive })` answers a Decision Required question the recovery agent asked during a run (`POST /run/{session_id}/decision/respond`).
+- `EventType.AgentDecisionRequested` (`agent.decision_requested`) and `EventType.AgentDecisionAnswered` (`agent.decision_answered`), with typed payloads, so handlers and the event stream can use them.
+
 ## 1.4.1
 
 ### Fixed

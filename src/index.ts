@@ -69,6 +69,15 @@ export type {
   PopupContext,
   InputRequiredReason,
   ExecutionInputRequiredPayload,
+  // Decision Required (agent.decision_requested / agent.decision_answered)
+  DecisionFieldType,
+  DecisionFieldOption,
+  DecisionField,
+  DecisionDirective,
+  DecisionAnswer,
+  AgentDecisionRequestedPayload,
+  AgentDecisionAnsweredPayload,
+  DecisionRespondResponse,
   // Existing payloads worth surfacing
   AgentErrorAnalysisPayload
 } from './events/types.js';

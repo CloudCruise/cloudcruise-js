@@ -10,7 +10,12 @@ import type {
   LiveViewConnection,
 } from './types.js';
 import { EventType } from '../events/types.js';
-import type { PopupContext, ExecutionInputRequiredPayload } from '../events/types.js';
+import type {
+  PopupContext,
+  ExecutionInputRequiredPayload,
+  DecisionAnswer,
+  DecisionRespondResponse
+} from '../events/types.js';
 import { AsyncEventQueue } from '../utils/asyncQueue.js';
 import { SimpleEventEmitter } from '../utils/events.js';
 import { ConnectionManager } from '../utils/connectionManager.js';
@@ -235,6 +240,32 @@ export class RunsClient {
   async submitUserInteraction(sessionId: string, data: UserInteractionData): Promise<void> {
     const path = `/run/${sessionId}/user_interaction`;
     await this.makeRequest<void>('POST', path, data);
+  }
+
+  /**
+   * Answers a question the recovery agent asked during a run (Decision
+   * Required). The agent.decision_requested event carries the decision_id, the
+   * fields (answer them by id in `values`, using the option id for choice
+   * fields) and whether free text is accepted.
+   *
+   * The first accepted answer from the API, Slack or the dashboard resolves
+   * the decision. The endpoint returns 404 once the decision is answered,
+   * expired or cancelled, and only accepts runs in the key's own workspace.
+   *
+   * @param sessionId - The session that asked the decision.
+   * @param decisionId - The decision_id from agent.decision_requested.
+   * @param answer - At least one of values, text or directive.
+   */
+  async respondToDecision(
+    sessionId: string,
+    decisionId: string,
+    answer: DecisionAnswer
+  ): Promise<DecisionRespondResponse> {
+    const path = `/run/${sessionId}/decision/respond`;
+    return this.makeRequest<DecisionRespondResponse>('POST', path, {
+      decision_id: decisionId,
+      ...answer
+    });
   }
 
   /**

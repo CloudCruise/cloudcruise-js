@@ -103,6 +103,19 @@ run.on("run.event", async (event) => {
 });
 ```
 
+### Decision Required
+
+When the recovery agent asks a human to decide, the `agent.decision_requested` event carries the question, the `fields` to answer and a `decision_id`. Answer with `respondToDecision`; the first accepted answer from the API, Slack or the dashboard resolves it, and `agent.decision_answered` reports the outcome.
+
+```typescript
+handle.on(EventType.AgentDecisionRequested, async (payload) => {
+  await client.runs.respondToDecision(payload.session_id, payload.decision_id, {
+    values: { choice: "keep" }, // option id for choice fields
+    // or text: "Use the most recent record", or directive: "requeue" | "add_error_code" | "fail"
+  });
+});
+```
+
 ### Input-Required Recoveries
 
 When the worker can't proceed and needs human/business input, the backend emits an `execution.input_required` event with a `reason` discriminator. The SDK exposes two logical handlers, one per recovery family. Underneath, both route from the same event; the SDK partitions by `reason` so your code stays clean.
