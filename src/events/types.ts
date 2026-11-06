@@ -19,7 +19,10 @@ export enum EventType {
   InteractionFinished = "interaction.finished",
   InteractionFailed = "interaction.failed",
   AgentErrorAnalysis = "agent.error_analysis",
+  /** @deprecated The API no longer sends this event. Consequential popups arrive as `agent.decision_requested`. */
   ExecutionInputRequired = "execution.input_required",
+  AgentDecisionRequested = "agent.decision_requested",
+  AgentDecisionAnswered = "agent.decision_answered",
 }
 
 // Payload type definitions
@@ -123,12 +126,97 @@ export type InputRequiredReason =
   | "multiple_matching_results"
   | "non_dismissible_popup";
 
+/** @deprecated The API no longer sends `execution.input_required`. Use `AgentDecisionRequestedPayload`. */
 export interface ExecutionInputRequiredPayload {
   session_id: string;
   input_variables: Record<string, any>;
   screenshot_url: string | null;
   reason?: InputRequiredReason;
   popup_context?: PopupContext;  // present iff reason === "non_dismissible_popup"
+}
+
+export type DecisionWebhookOutcome =
+  | "answered"
+  | "declined"
+  | "expired"
+  | "cancelled"
+  | "failed";
+
+export type DecisionWebhookAnsweredVia = "slack" | "web" | "api";
+
+export type DecisionWebhookDirective = "requeue" | "add_error_code" | "fail";
+
+export type DecisionWebhookFieldValue = string | number | boolean | string[];
+
+export interface DecisionWebhookOption {
+  id: string;
+  label: string;
+  note?: string;
+}
+
+export interface DecisionWebhookField {
+  id: string;
+  label: string;
+  type: string;
+  options?: DecisionWebhookOption[];
+  required?: false;
+  min?: number;
+  max?: number;
+  placeholder?: string;
+  hint?: string;
+}
+
+export interface DecisionRequestedWebhookEventPayload {
+  decision_id: string;
+  answer_by: string;
+  question: string;
+  context: string;
+  fields: DecisionWebhookField[];
+  free_text: boolean;
+  respond_url: string;
+  signed_screenshot_url?: string;
+  signed_screenshot_url_expires?: string;
+}
+
+export interface PendingDecision {
+  decision_id: string;
+  answer_by: string;
+  question: string;
+  context: string;
+  fields: DecisionWebhookField[];
+  free_text: boolean;
+  respond_url: string;
+}
+
+export interface PendingDecisionResponse {
+  decision: PendingDecision | null;
+  answered_decision_id: string | null;
+}
+
+export interface DecisionWebhookAnswer {
+  values?: Record<string, DecisionWebhookFieldValue>;
+  text?: string;
+  directive?: DecisionWebhookDirective;
+}
+
+export interface DecisionAnsweredWebhookEventPayload {
+  decision_id: string;
+  outcome: DecisionWebhookOutcome;
+  answered_via?: DecisionWebhookAnsweredVia;
+  answered_by?: string;
+  answer?: DecisionWebhookAnswer;
+}
+
+export interface AgentDecisionRequestedPayload
+  extends DecisionRequestedWebhookEventPayload {
+  session_id: string;
+  workflow_id: string;
+}
+
+export interface AgentDecisionAnsweredPayload
+  extends DecisionAnsweredWebhookEventPayload {
+  session_id: string;
+  workflow_id: string;
 }
 
 export interface ExecutionRequeuedPayload {
@@ -212,6 +300,8 @@ export type EventPayloadMap = {
   [EventType.ExecutionPause]: never;
   [EventType.InteractionFailed]: never;
   [EventType.ExecutionInputRequired]: ExecutionInputRequiredPayload;
+  [EventType.AgentDecisionRequested]: AgentDecisionRequestedPayload;
+  [EventType.AgentDecisionAnswered]: AgentDecisionAnsweredPayload;
 };
 
 // Webhook message format

@@ -70,7 +70,20 @@ export type {
   InputRequiredReason,
   ExecutionInputRequiredPayload,
   // Existing payloads worth surfacing
-  AgentErrorAnalysisPayload
+  AgentErrorAnalysisPayload,
+  DecisionWebhookOutcome,
+  DecisionWebhookAnsweredVia,
+  DecisionWebhookDirective,
+  DecisionWebhookFieldValue,
+  DecisionWebhookOption,
+  DecisionWebhookField,
+  DecisionWebhookAnswer,
+  DecisionRequestedWebhookEventPayload,
+  PendingDecision,
+  PendingDecisionResponse,
+  DecisionAnsweredWebhookEventPayload,
+  AgentDecisionRequestedPayload,
+  AgentDecisionAnsweredPayload
 } from './events/types.js';
 
 export type { WebhookVerificationOptions } from './webhook/types.js';

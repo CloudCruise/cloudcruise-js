@@ -10,7 +10,7 @@ import type {
   LiveViewConnection,
 } from './types.js';
 import { EventType } from '../events/types.js';
-import type { PopupContext, ExecutionInputRequiredPayload } from '../events/types.js';
+import type { PopupContext, ExecutionInputRequiredPayload, DecisionWebhookAnswer, PendingDecisionResponse } from '../events/types.js';
 import { AsyncEventQueue } from '../utils/asyncQueue.js';
 import { SimpleEventEmitter } from '../utils/events.js';
 import { ConnectionManager } from '../utils/connectionManager.js';
@@ -249,6 +249,8 @@ export class RunsClient {
    *
    * @param sessionId - The session waiting for input.
    * @param actionId - One of the ids in popup_context.available_actions.
+   *
+   * @deprecated Use the `respond_url` of `agent.decision_requested`; the `/new_input_variables` endpoint this calls was removed from the API.
    */
   async submitModalAction(sessionId: string, actionId: string): Promise<void> {
     const path = `/run/${sessionId}/new_input_variables`;
@@ -265,6 +267,8 @@ export class RunsClient {
    *
    * @param sessionId - The session waiting for input.
    * @param inputVariables - Mapping of variable name to new value.
+   *
+   * @deprecated Use the `respond_url` of `agent.decision_requested`; the `/new_input_variables` endpoint this calls was removed from the API.
    */
   async submitInputVariables(sessionId: string, inputVariables: Record<string, any>): Promise<void> {
     const path = `/run/${sessionId}/new_input_variables`;
@@ -285,6 +289,8 @@ export class RunsClient {
    * here and should be routed to onInputVariablesRequired.
    *
    * @returns An unsubscribe callable.
+   *
+   * @deprecated The API no longer sends `execution.input_required`, so this never fires. Subscribe a webhook to `agent.decision_requested` instead.
    */
   onPopupDecisionRequired(
     handle: RunHandle,
@@ -357,6 +363,8 @@ export class RunsClient {
    * (reason === "non_dismissible_popup") are routed there and ignored here.
    *
    * @returns An unsubscribe callable.
+   *
+   * @deprecated The API no longer sends `execution.input_required`, so this never fires. Subscribe a webhook to `agent.decision_requested` instead.
    */
   onInputVariablesRequired(
     handle: RunHandle,
@@ -413,6 +421,47 @@ export class RunsClient {
     };
     const unsubscribe = handle.on(EventType.ExecutionInputRequired, listener as any);
     return typeof unsubscribe === 'function' ? unsubscribe : () => {};
+  }
+
+  /**
+   * Reads the decision the recovery agent is waiting on for a run (Decision
+   * Required), in the shape of the agent.decision_requested event: decision_id,
+   * answer_by, question, context, fields with their ids and options, free_text
+   * and respond_url. `decision` is null when nothing is pending, and
+   * `answered_decision_id` is set when a decision on this run was already
+   * answered. Only reads runs in the key's own workspace.
+   *
+   * @param sessionId - The session that asked the decision.
+   */
+  async getPendingDecision(sessionId: string): Promise<PendingDecisionResponse> {
+    const path = `/run/${sessionId}/decision/pending`;
+    return this.makeRequest<PendingDecisionResponse>('GET', path);
+  }
+
+  /**
+   * Answers a question the recovery agent asked during a run (Decision
+   * Required). The agent.decision_requested event carries the decision_id and
+   * the fields; answer them by id in `values`, using the option id for choice
+   * fields. Send at least one of values, text or directive.
+   *
+   * The first accepted answer from the API, Slack or the dashboard resolves the
+   * decision. The endpoint returns 404 once the decision is answered, expired
+   * or cancelled, and only accepts runs in the key's own workspace.
+   *
+   * @param sessionId - The session that asked the decision.
+   * @param decisionId - The decision_id from agent.decision_requested.
+   * @param answer - The answer: values, text and/or directive.
+   */
+  async respondToDecision(
+    sessionId: string,
+    decisionId: string,
+    answer: DecisionWebhookAnswer
+  ): Promise<{ status: 'accepted'; decision_id: string }> {
+    const path = `/run/${sessionId}/decision/respond`;
+    return this.makeRequest<{ status: 'accepted'; decision_id: string }>('POST', path, {
+      decision_id: decisionId,
+      ...answer
+    });
   }
 
   /**
