@@ -65,6 +65,14 @@ export interface StartRunRequest {
   webhook?: PayloadWebhook;
   additional_context?: Record<string, any>;
   client_id?: string;
+  /**
+   * Run a specific version: an exact semver ("2.1.0") or a range ("^2.1.0").
+   * Give at most one of `workflow_version` and `workflow_branch_id`; with
+   * neither, the head of the workflow's default branch runs.
+   */
+  workflow_version?: string;
+  /** Run the latest version on this branch (branch id). */
+  workflow_branch_id?: string;
 }
 
 export interface StartRunResponse {
@@ -154,6 +162,15 @@ export interface GetRunResult {
   status: EventType;
   input_variables: Record<string, any>;
   workflow_id: string | null;
+  /** The exact workflow version this run executed. */
+  workflow_version_id?: string | null;
+  /**
+   * The branch the run was started on: the branch it was pinned to, or the
+   * default branch for an unpinned run. Null for a version-pinned run, a run
+   * from before branches were recorded, or a deleted branch.
+   */
+  workflow_branch_id?: string | null;
+  workflow_branch_name?: string | null;
   session_retries: number | null;
   encrypted_variables: string[] | null;
   video_urls: VideoUrl[] | null;

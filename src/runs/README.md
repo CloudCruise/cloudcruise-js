@@ -33,6 +33,27 @@ console.log("Run completed:", result.status);
 console.log("Output data:", result.data);
 ```
 
+### Running a Specific Version or Branch
+
+Without a pin, the head of the workflow's default branch runs. Pin a version (exact or a semver range) or a branch, but not both:
+
+```typescript
+await client.runs.start({
+  workflow_id: "workflow-123",
+  run_input_variables: {},
+  workflow_version: "^2.1.0",
+});
+
+await client.runs.start({
+  workflow_id: "workflow-123",
+  run_input_variables: {},
+  workflow_branch_id: "branch-id",
+});
+
+const result = await client.runs.getResults(sessionId);
+console.log(result.workflow_version_id, result.workflow_branch_name);
+```
+
 ### Real-time Event Streaming
 
 ```typescript
