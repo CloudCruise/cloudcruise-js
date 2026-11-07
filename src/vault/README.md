@@ -15,7 +15,7 @@ const client = new CloudCruise({
 });
 
 // Create a vault entry
-// variables like user_name, password and tfa_secret or automatically encrypted
+// user_name, password and tfa_secret are encrypted automatically
 const entry = await client.vault.create("https://example.com", "user123", {
   user_name: "john_doe",
   password: "secure_password",
@@ -56,12 +56,56 @@ await client.vault.delete({
   domain: "https://example.com" 
 });
 
-// Get the current 2FA code for an entry (auto-detected by the credential's 2FA method)
+// Get the current 2FA code for an entry with one 2FA method
 const tfa = await client.vault.getTfaCode("user123", "https://example.com");
 // Authenticator -> { type: "authenticator", code: "123456", expires_in_seconds: 23 }
 // Email         -> { type: "email", code: "884512", received_at: "..." }
-// (SMS and magic-link credentials are not supported.)
+// (SMS and magic-link codes are not supported.)
+
+// Entry with several 2FA methods: pick one
+await client.vault.getTfaCode("user123", "https://example.com", { method: "EMAIL" });
+
+// Code of a Totp additional field instead of the built-in seed (implies AUTHENTICATOR)
+await client.vault.getTfaCode("user123", "https://example.com", { field: "Backup authenticator" });
 ```
+
+### Additional Fields, 2FA Methods and Security Questions
+
+Every additional field `value` and every security question and answer is
+encrypted client-side, like `password`. Both lists replace the stored lists on
+`create` and `update`.
+
+```typescript
+await client.vault.create("https://example.com", "user123", {
+  user_name: "john_doe",
+  password: "secure_password",
+  tfa_secret: "JBSWY3DPEHPK3PXP",
+  tfa_methods: ["AUTHENTICATOR", "EMAIL"],
+  additional_fields: [
+    { name: "Member ID", type: "Text", value: "A-1029" },
+    { name: "Backup authenticator", type: "Totp", value: "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP" },
+    {
+      name: "Billing address",
+      type: "Address",
+      value: { street: "1 Main St", city: "Springfield", state: "IL", zip: "62701", country: "US" },
+    },
+  ],
+  security_questions: [
+    { question: "What was your first pet called?", answer: "Rex" },
+  ],
+});
+```
+
+Field types: `Text`, `Email`, `Url`, `Phone`, `Date`, `MonthYear`, `Address`,
+`Concealed`, `Totp`. `tfa_method` is deprecated; it reads as the first of
+`tfa_methods`. On write the API ignores it when `tfa_methods` is set and
+otherwise replaces the stored methods with it.
+
+Entries bound to a secret provider take additional fields and security
+questions from the bound item. `get()` with both `domain` and
+`permissioned_user_id` reports skipped ones in `additional_field_warnings` and
+`security_question_warnings` when there are any. Both are read-only and never
+sent on `create` or `update`.
 
 ### Provider-Backed Credentials
 
@@ -128,5 +172,6 @@ For the most up-to-date information about supported parameters and API specifica
 - [Get Vault Entries](https://docs.cloudcruise.com/vault-api/get-vault-entries.md) - Retrieve and filter vault entries
 - [Update Vault Entry](https://docs.cloudcruise.com/vault-api/update-vault-entry.md) - Update existing vault entries
 - [Delete Vault Entry](https://docs.cloudcruise.com/vault-api/delete-vault-entry.md) - Remove vault entries
+- [Get 2FA Code](https://docs.cloudcruise.com/vault-api/get-vault-tfa-code.md) - Read the current 2FA code of an entry
 
 **Note:** The official documentation is the authoritative source for current API capabilities and supported parameters. SDK features may vary based on the API version.
