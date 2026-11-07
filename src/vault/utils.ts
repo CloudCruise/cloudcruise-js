@@ -74,6 +74,13 @@ async function decryptOrKeep(value: unknown, encryptionKey: string): Promise<unk
  * @param encryptionKey - Hex-encoded encryption key
  * @returns Entry with encrypted sensitive fields
  */
+function required(item: any, key: string, path: string): any {
+  if (item?.[key] === undefined || item?.[key] === null) {
+    throw new Error(`${path}.${key} is required`);
+  }
+  return item[key];
+}
+
 export async function encryptSensitiveFields(entry: any, encryptionKey: string): Promise<any> {
   const encryptedEntry = { ...entry };
 
@@ -91,18 +98,19 @@ export async function encryptSensitiveFields(entry: any, encryptionKey: string):
 
   if (Array.isArray(entry.additional_fields)) {
     encryptedEntry.additional_fields = await Promise.all(
-      entry.additional_fields.map(async (field: any) => ({
-        ...field,
-        value: await encryptData(field.value, encryptionKey)
+      entry.additional_fields.map(async (field: any, i: number) => ({
+        name: required(field, 'name', `additional_fields[${i}]`),
+        type: required(field, 'type', `additional_fields[${i}]`),
+        value: await encryptData(required(field, 'value', `additional_fields[${i}]`), encryptionKey)
       }))
     );
   }
 
   if (Array.isArray(entry.security_questions)) {
     encryptedEntry.security_questions = await Promise.all(
-      entry.security_questions.map(async (item: any) => ({
-        question: await encryptData(item.question, encryptionKey),
-        answer: await encryptData(item.answer, encryptionKey)
+      entry.security_questions.map(async (item: any, i: number) => ({
+        question: await encryptData(required(item, 'question', `security_questions[${i}]`), encryptionKey),
+        answer: await encryptData(required(item, 'answer', `security_questions[${i}]`), encryptionKey)
       }))
     );
   }
@@ -142,23 +150,11 @@ export async function encryptSensitiveFields(entry: any, encryptionKey: string):
  */
 export async function decryptSensitiveFields(entry: any, encryptionKey: string): Promise<any> {
   const decryptedEntry = { ...entry };
-  
-  if (typeof entry.user_name === 'string') {
-    try {
-      decryptedEntry.user_name = await decryptData(entry.user_name, encryptionKey);
-    } catch {}
-  }
-  
-  if (typeof entry.password === 'string') {
-    try {
-      decryptedEntry.password = await decryptData(entry.password, encryptionKey);
-    } catch {}
-  }
-  
-  if (typeof entry.tfa_secret === 'string') {
-    try {
-      decryptedEntry.tfa_secret = await decryptData(entry.tfa_secret, encryptionKey);
-    } catch {}
+
+  for (const key of ['user_name', 'password', 'tfa_secret']) {
+    if (key in entry) {
+      decryptedEntry[key] = await decryptOrKeep(entry[key], encryptionKey);
+    }
   }
 
   if (Array.isArray(entry.additional_fields)) {
@@ -179,10 +175,8 @@ export async function decryptSensitiveFields(entry: any, encryptionKey: string):
     );
   }
 
-  if (entry.proxy_setting === 'custom' && typeof entry.proxy_value === 'string') {
-    try {
-      decryptedEntry.proxy_value = await decryptData(entry.proxy_value, encryptionKey);
-    } catch {}
+  if (entry.proxy_setting === 'custom' && 'proxy_value' in entry) {
+    decryptedEntry.proxy_value = await decryptOrKeep(entry.proxy_value, encryptionKey);
   }
 
   return decryptedEntry;

@@ -568,3 +568,80 @@ test('VaultClient.update sends tfa_methods as given and the replacement lists en
   assert.deepEqual(result.additional_fields, [ADDITIONAL_FIELDS[6], ADDITIONAL_FIELDS[8]]);
   assert.deepEqual(result.security_questions, questions);
 });
+
+test('VaultClient.create sends only name, type and value of an additional field', async () => {
+  const calls = [];
+  const client = new VaultClient(async (method, path, body) => {
+    calls.push(body);
+    return body;
+  }, ENCRYPTION_KEY);
+
+  await client.create('example.com', 'user123', {
+    additional_fields: [{ id: 7, name: 'Note', type: 'Text', value: 'x' }]
+  });
+
+  assert.deepEqual(Object.keys(calls[0].additional_fields[0]).sort(), ['name', 'type', 'value']);
+});
+
+test('VaultClient.create names the additional field or security question that lacks a value', async () => {
+  const client = new VaultClient(async (method, path, body) => body, ENCRYPTION_KEY);
+
+  await assert.rejects(
+    client.create('example.com', 'user123', {
+      additional_fields: [{ name: 'Note', type: 'Text' }]
+    }),
+    /additional_fields\[0\]\.value is required/
+  );
+  await assert.rejects(
+    client.create('example.com', 'user123', {
+      security_questions: [{ question: 'Pet?', answer: 'Rex' }, { question: 'Colour?', answer: null }]
+    }),
+    /security_questions\[1\]\.answer is required/
+  );
+});
+
+test('VaultClient.update does not send the read-only warnings of an entry read back from get', async () => {
+  const calls = [];
+  const client = new VaultClient(async (method, path, body) => {
+    calls.push(body);
+    return body;
+  }, ENCRYPTION_KEY);
+
+  await client.update({
+    domain: 'example.com',
+    permissioned_user_id: 'user123',
+    user_name: 'u',
+    password: 'p',
+    additional_field_warnings: [{ name: 'Dup', reason: 'duplicate_name' }],
+    security_question_warnings: [{ question: 'Long?', reason: 'question_too_long' }]
+  });
+
+  assert.equal('additional_field_warnings' in calls[0], false);
+  assert.equal('security_question_warnings' in calls[0], false);
+});
+
+test('VaultClient.getTfaCode rejects field with a method other than AUTHENTICATOR before sending', async () => {
+  const calls = [];
+  const client = new VaultClient(async (method, path) => {
+    calls.push(path);
+    return { type: 'email', code: '123456' };
+  }, ENCRYPTION_KEY);
+
+  await assert.rejects(
+    client.getTfaCode('user123', 'example.com', { method: 'EMAIL', field: 'Backup authenticator' }),
+    /field requires method AUTHENTICATOR/
+  );
+  assert.deepEqual(calls, []);
+});
+
+test('VaultClient.getTfaCode sends an empty field instead of silently reading the built-in seed', async () => {
+  const calls = [];
+  const client = new VaultClient(async (method, path) => {
+    calls.push(path);
+    return { type: 'authenticator', code: '123456' };
+  }, ENCRYPTION_KEY);
+
+  await client.getTfaCode('user123', 'example.com', { field: '' });
+
+  assert.ok(calls[0].endsWith('&field='));
+});

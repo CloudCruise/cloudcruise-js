@@ -39,6 +39,11 @@ function validateProviderPayload(entry: Partial<VaultEntry>): void {
   }
 }
 
+function withoutReadOnlyFields<T extends Partial<VaultEntry>>(entry: T): T {
+  const { additional_field_warnings, security_question_warnings, ...rest } = entry;
+  return rest as T;
+}
+
 function isProviderBackedPayload(entry: Partial<VaultEntry>): boolean {
   return entry.secret_provider_id != null && entry.secret_ref != null;
 }
@@ -78,7 +83,7 @@ export class VaultClient {
     };
     validateProviderPayload(entry);
     
-    let processedEntry = { ...entry };
+    let processedEntry = withoutReadOnlyFields(entry);
     
     // Encrypt sensitive fields
     processedEntry = await encryptSensitiveFields(processedEntry, this.encryptionKey);
@@ -149,13 +154,16 @@ export class VaultClient {
     if (!domain) {
       throw new Error('domain is required to get a TFA code');
     }
+    if (options?.field !== undefined && options.method !== undefined && options.method !== 'AUTHENTICATOR') {
+      throw new Error('field requires method AUTHENTICATOR or no method');
+    }
     const params = new URLSearchParams();
     params.append('permissioned_user_id', permissioned_user_id);
     params.append('domain', domain);
-    if (options?.method) {
+    if (options?.method !== undefined) {
       params.append('method', options.method);
     }
-    if (options?.field) {
+    if (options?.field !== undefined) {
       params.append('field', options.field);
     }
     return await this.makeRequest<VaultTfaCode>(
@@ -191,7 +199,7 @@ export class VaultClient {
       }
     }
     
-    let processedEntry = { ...updates };
+    let processedEntry = withoutReadOnlyFields(updates);
     
     // Encrypt sensitive fields
     processedEntry = await encryptSensitiveFields(processedEntry, this.encryptionKey);

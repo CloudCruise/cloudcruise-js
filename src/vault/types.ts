@@ -96,15 +96,19 @@ export interface VaultEntry {
   expiry_time_from_last_use?: string | null;
   expiry_time_from_session_data_set?: string | null;
   tfa_methods?: VaultTfaMethod[];
-  /** @deprecated Use `tfa_methods`. Reads as the first of `tfa_methods`. */
+  /**
+   * @deprecated Use `tfa_methods`. Reads as the first of `tfa_methods`. On write
+   * the API ignores it when `tfa_methods` is set; on its own it replaces the
+   * stored methods with this single method.
+   */
   tfa_method?: VaultTfaMethod | null;
   /** Replaces the entry's additional fields on create and update. */
   additional_fields?: VaultAdditionalField[];
-  /** Skipped fields of the bound secret provider item. Read-only. */
+  /** Skipped fields of the bound secret provider item. Read-only: set on a single-entry get, never sent. */
   additional_field_warnings?: VaultAdditionalFieldWarning[];
   /** Ordered. Replaces the entry's security questions on create and update. */
   security_questions?: VaultSecurityQuestion[];
-  /** Skipped security questions of the bound secret provider item. Read-only. */
+  /** Skipped security questions of the bound secret provider item. Read-only: set on a single-entry get, never sent. */
   security_question_warnings?: VaultSecurityQuestionWarning[];
   cookies?: any;
   local_storage?: any;
@@ -160,6 +164,6 @@ export interface VaultTfaCode {
 export interface GetTfaCodeOptions {
   /** 2FA method to read. Required when the entry has several `tfa_methods`. */
   method?: VaultTfaMethod;
-  /** Name of a `Totp` additional field. Implies `method: 'AUTHENTICATOR'`. */
+  /** Name of a `Totp` additional field. Requires `method` to be `'AUTHENTICATOR'` or unset. */
   field?: string;
 }
