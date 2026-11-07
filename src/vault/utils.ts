@@ -56,10 +56,20 @@ export async function decryptData(encryptedHex: string, keyHex: string): Promise
   }
 }
 
+async function decryptOrKeep(value: unknown, encryptionKey: string): Promise<unknown> {
+  if (typeof value !== 'string') return value;
+  try {
+    return await decryptData(value, encryptionKey);
+  } catch {
+    return value;
+  }
+}
+
 /**
  * Encrypts sensitive fields in a vault entry
- * Fields encrypted: user_name, password, tfa_secret (if present), and
- * proxy_value when proxy_setting is "custom" (the bring-your-own proxy URL).
+ * Fields encrypted: user_name, password, tfa_secret (if present), every
+ * additional field value, every security question and answer, and proxy_value when proxy_setting is "custom"
+ * (the bring-your-own proxy URL).
  * @param entry - Vault entry with potentially sensitive data
  * @param encryptionKey - Hex-encoded encryption key
  * @returns Entry with encrypted sensitive fields
@@ -77,6 +87,24 @@ export async function encryptSensitiveFields(entry: any, encryptionKey: string):
 
   if (entry.tfa_secret !== undefined) {
     encryptedEntry.tfa_secret = await encryptData(entry.tfa_secret, encryptionKey);
+  }
+
+  if (Array.isArray(entry.additional_fields)) {
+    encryptedEntry.additional_fields = await Promise.all(
+      entry.additional_fields.map(async (field: any) => ({
+        ...field,
+        value: await encryptData(field.value, encryptionKey)
+      }))
+    );
+  }
+
+  if (Array.isArray(entry.security_questions)) {
+    encryptedEntry.security_questions = await Promise.all(
+      entry.security_questions.map(async (item: any) => ({
+        question: await encryptData(item.question, encryptionKey),
+        answer: await encryptData(item.answer, encryptionKey)
+      }))
+    );
   }
 
   // proxy_value is meaningless to the backend without proxy_setting, which is
@@ -131,6 +159,24 @@ export async function decryptSensitiveFields(entry: any, encryptionKey: string):
     try {
       decryptedEntry.tfa_secret = await decryptData(entry.tfa_secret, encryptionKey);
     } catch {}
+  }
+
+  if (Array.isArray(entry.additional_fields)) {
+    decryptedEntry.additional_fields = await Promise.all(
+      entry.additional_fields.map(async (field: any) => ({
+        ...field,
+        value: await decryptOrKeep(field?.value, encryptionKey)
+      }))
+    );
+  }
+
+  if (Array.isArray(entry.security_questions)) {
+    decryptedEntry.security_questions = await Promise.all(
+      entry.security_questions.map(async (item: any) => ({
+        question: await decryptOrKeep(item?.question, encryptionKey),
+        answer: await decryptOrKeep(item?.answer, encryptionKey)
+      }))
+    );
   }
 
   if (entry.proxy_setting === 'custom' && typeof entry.proxy_value === 'string') {

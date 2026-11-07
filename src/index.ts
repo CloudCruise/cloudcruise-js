@@ -19,7 +19,16 @@ export type {
   VaultPostPutHeadersInBody,
   SecretProvider,
   SecretProviderItem,
-  SecretProviderType
+  SecretProviderType,
+  VaultTfaCode,
+  VaultTfaMethod,
+  GetTfaCodeOptions,
+  VaultFieldType,
+  VaultAddress,
+  VaultAdditionalField,
+  VaultAdditionalFieldWarning,
+  VaultSecurityQuestion,
+  VaultSecurityQuestionWarning
 } from './vault/types.js';
 
 export type {

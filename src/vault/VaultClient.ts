@@ -1,4 +1,5 @@
 import type {
+  GetTfaCodeOptions,
   GetVaultEntriesFilters,
   VaultEntry,
   VaultTfaCode
@@ -26,6 +27,12 @@ function validateProviderPayload(entry: Partial<VaultEntry>): void {
     const conflicts = ['user_name', 'password', 'tfa_secret'].filter(
       field => entry[field as keyof VaultEntry] !== undefined && entry[field as keyof VaultEntry] !== null
     );
+    if (entry.additional_fields?.length) {
+      conflicts.push('additional_fields');
+    }
+    if (entry.security_questions?.length) {
+      conflicts.push('security_questions');
+    }
     if (conflicts.length > 0) {
       throw new Error(`provider-backed vault entries cannot include ${conflicts.join(', ')}`);
     }
@@ -120,18 +127,21 @@ export class VaultClient {
   /**
    * Gets the current 2FA code for a single vault entry.
    *
-   * The code returned depends on the credential's 2FA method:
+   * The code returned depends on the 2FA method:
    * - Authenticator (TOTP): a freshly generated code, with `expires_in_seconds`.
    * - Email: the most recently received code (within the freshness window), with `received_at`.
    *
-   * SMS and magic-link credentials are not supported (the endpoint returns 409).
+   * SMS and magic-link codes are not supported (the endpoint returns 409).
    *
    * @param permissioned_user_id - User identifier for the vault entry
    * @param domain - Target domain of the vault entry
+   * @param options.method - 2FA method to read. Required when the entry has several `tfa_methods`.
+   * @param options.field - Name of a `Totp` additional field whose code to return instead of the built-in seed's.
    */
   async getTfaCode(
     permissioned_user_id: string,
-    domain: string
+    domain: string,
+    options?: GetTfaCodeOptions
   ): Promise<VaultTfaCode> {
     if (!permissioned_user_id) {
       throw new Error('permissioned_user_id is required to get a TFA code');
@@ -142,6 +152,12 @@ export class VaultClient {
     const params = new URLSearchParams();
     params.append('permissioned_user_id', permissioned_user_id);
     params.append('domain', domain);
+    if (options?.method) {
+      params.append('method', options.method);
+    }
+    if (options?.field) {
+      params.append('field', options.field);
+    }
     return await this.makeRequest<VaultTfaCode>(
       'GET',
       `/vault/tfa-code?${params.toString()}`
