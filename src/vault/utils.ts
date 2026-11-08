@@ -65,6 +65,13 @@ async function decryptOrKeep(value: unknown, encryptionKey: string): Promise<unk
   }
 }
 
+function required(item: any, key: string, path: string): any {
+  if (item?.[key] === undefined || item?.[key] === null) {
+    throw new Error(`${path}.${key} is required`);
+  }
+  return item[key];
+}
+
 /**
  * Encrypts sensitive fields in a vault entry
  * Fields encrypted: user_name, password, tfa_secret (if present), every
@@ -74,13 +81,6 @@ async function decryptOrKeep(value: unknown, encryptionKey: string): Promise<unk
  * @param encryptionKey - Hex-encoded encryption key
  * @returns Entry with encrypted sensitive fields
  */
-function required(item: any, key: string, path: string): any {
-  if (item?.[key] === undefined || item?.[key] === null) {
-    throw new Error(`${path}.${key} is required`);
-  }
-  return item[key];
-}
-
 export async function encryptSensitiveFields(entry: any, encryptionKey: string): Promise<any> {
   const encryptedEntry = { ...entry };
 
@@ -169,6 +169,7 @@ export async function decryptSensitiveFields(entry: any, encryptionKey: string):
   if (Array.isArray(entry.security_questions)) {
     decryptedEntry.security_questions = await Promise.all(
       entry.security_questions.map(async (item: any) => ({
+        ...item,
         question: await decryptOrKeep(item?.question, encryptionKey),
         answer: await decryptOrKeep(item?.answer, encryptionKey)
       }))

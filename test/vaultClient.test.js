@@ -310,6 +310,31 @@ test('VaultClient.get decrypts additional fields and security questions and keep
   assert.deepEqual(entry.security_question_warnings, questionWarnings);
 });
 
+// The entry itself passes unknown response keys through, so list items must too:
+// a key the backend adds later stays visible in both lists instead of only one.
+test('VaultClient.get keeps unknown keys of additional fields and security questions', async () => {
+  const encryptedEntry = await encryptSensitiveFields(
+    {
+      domain: 'example.com',
+      permissioned_user_id: 'user123',
+      additional_fields: [{ name: 'Note', type: 'Text', value: 'front desk' }],
+      security_questions: [{ question: 'Q?', answer: 'A' }]
+    },
+    ENCRYPTION_KEY
+  );
+  const response = {
+    ...encryptedEntry,
+    additional_fields: [{ ...encryptedEntry.additional_fields[0], source: 'provider' }],
+    security_questions: [{ ...encryptedEntry.security_questions[0], source: 'provider' }]
+  };
+  const client = new VaultClient(async () => [response], ENCRYPTION_KEY);
+
+  const [entry] = await client.get();
+
+  assert.deepEqual(entry.additional_fields, [{ name: 'Note', type: 'Text', value: 'front desk', source: 'provider' }]);
+  assert.deepEqual(entry.security_questions, [{ question: 'Q?', answer: 'A', source: 'provider' }]);
+});
+
 // decryptCredentials: false promises the raw API response, so the new
 // encrypted lists must stay ciphertext too.
 test('VaultClient.get with decryptCredentials false returns additional fields and security questions as ciphertext', async () => {
