@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.5.0
 
 ### Added
 
@@ -10,7 +10,7 @@
 - `client.runs.getPendingDecision(sessionId)` reads the decision a run is waiting on, in the shape of `agent.decision_requested` (`{ decision, answered_decision_id }`), through `GET /run/{session_id}/decision/pending`.
 - `client.runs.respondToDecision(sessionId, decisionId, { values, text, directive })` answers a decision through `POST /run/{session_id}/decision/respond`, with the answer typed as `DecisionWebhookAnswer`.
 - `StartRunRequest` takes `workflow_version` (an exact semver or a range such as `^2.1.0`) or `workflow_branch_id` (run the latest version on that branch), both already accepted by `POST /run`.
-- `GetRunResult` has `workflow_version_id` (the exact version the run executed), and `workflow_branch_id` / `workflow_branch_name` (the branch the run was started on; null for a version-pinned run or a run from before branches were recorded). The branch fields ship with CloudCruise/monorepo#12284; until it is deployed they are absent.
+- `GetRunResult` has `workflow_version_id` (the exact version the run executed), and `workflow_branch_id` / `workflow_branch_name` (the branch the run was started on; null for a version-pinned run or a run from before branches were recorded).
 
 ### Deprecated
 
