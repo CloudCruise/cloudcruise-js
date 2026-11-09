@@ -12,6 +12,67 @@ export interface ProxyConfig {
   target_ip?: string;
 }
 
+export type VaultTfaMethod = 'AUTHENTICATOR' | 'EMAIL' | 'MAGIC_LINK' | 'SMS';
+
+export type VaultFieldType =
+  | 'Text'
+  | 'Email'
+  | 'Url'
+  | 'Phone'
+  | 'Date'
+  | 'MonthYear'
+  | 'Address'
+  | 'Concealed'
+  | 'Totp';
+
+export interface VaultAddress {
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+}
+
+/**
+ * A named, typed value on a vault entry. `value` is an object only for
+ * `Address`. Workflows read it as `{{context.inputs.<ALIAS>.FIELDS.<name>}}`.
+ */
+export interface VaultAdditionalField {
+  name: string;
+  type: VaultFieldType;
+  value: string | VaultAddress;
+}
+
+export interface VaultAdditionalFieldWarning {
+  name: string;
+  reason:
+    | 'duplicate_name'
+    | 'too_many_fields'
+    | 'value_too_large'
+    | 'name_too_long'
+    | 'invalid_value'
+    | 'unsupported_type'
+    | 'reserved_name';
+}
+
+/**
+ * A security question and its answer, answered by a `SECURITY_QUESTION` TFA node.
+ */
+export interface VaultSecurityQuestion {
+  question: string;
+  answer: string;
+}
+
+export interface VaultSecurityQuestionWarning {
+  question: string;
+  reason:
+    | 'duplicate_question'
+    | 'too_many_questions'
+    | 'question_too_long'
+    | 'answer_too_large'
+    | 'invalid_value';
+}
+
 export interface VaultEntry {
   id: string;
   domain: string;
@@ -34,7 +95,21 @@ export interface VaultEntry {
   max_concurrency?: number | null;
   expiry_time_from_last_use?: string | null;
   expiry_time_from_session_data_set?: string | null;
-  tfa_method?: 'AUTHENTICATOR' | 'EMAIL' | 'SMS' | null;
+  tfa_methods?: VaultTfaMethod[];
+  /**
+   * @deprecated Use `tfa_methods`. Reads as the first of `tfa_methods`. On write
+   * the API ignores it when `tfa_methods` is set; on its own it replaces the
+   * stored methods with this single method.
+   */
+  tfa_method?: VaultTfaMethod | null;
+  /** Replaces the entry's additional fields on create and update. */
+  additional_fields?: VaultAdditionalField[];
+  /** Skipped fields of the bound secret provider item. Read-only: set on a single-entry get, never sent. */
+  additional_field_warnings?: VaultAdditionalFieldWarning[];
+  /** Ordered. Replaces the entry's security questions on create and update. */
+  security_questions?: VaultSecurityQuestion[];
+  /** Skipped security questions of the bound secret provider item. Read-only: set on a single-entry get, never sent. */
+  security_question_warnings?: VaultSecurityQuestionWarning[];
   cookies?: any;
   local_storage?: any;
   session_storage?: any;
@@ -84,4 +159,11 @@ export interface VaultTfaCode {
   code: string;
   expires_in_seconds?: number;
   received_at?: string;
+}
+
+export interface GetTfaCodeOptions {
+  /** 2FA method to read. Required when the entry has several `tfa_methods`. */
+  method?: VaultTfaMethod;
+  /** Name of a `Totp` additional field. Requires `method` to be `'AUTHENTICATOR'` or unset. */
+  field?: string;
 }

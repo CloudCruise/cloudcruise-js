@@ -15,7 +15,7 @@ const client = new CloudCruise({
 });
 
 // Create a vault entry
-// variables like user_name, password and tfa_secret or automatically encrypted
+// user_name, password and tfa_secret are encrypted automatically
 const entry = await client.vault.create("https://example.com", "user123", {
   user_name: "john_doe",
   password: "secure_password",
@@ -56,12 +56,34 @@ await client.vault.delete({
   domain: "https://example.com" 
 });
 
-// Get the current 2FA code for an entry (auto-detected by the credential's 2FA method)
+// Get the current 2FA code for an entry with one 2FA method
 const tfa = await client.vault.getTfaCode("user123", "https://example.com");
 // Authenticator -> { type: "authenticator", code: "123456", expires_in_seconds: 23 }
 // Email         -> { type: "email", code: "884512", received_at: "..." }
-// (SMS and magic-link credentials are not supported.)
+// (SMS and magic-link codes are not supported.)
+
+// Entry with several 2FA methods: pick one
+await client.vault.getTfaCode("user123", "https://example.com", { method: "EMAIL" });
+
+// Code of a Totp additional field instead of the built-in seed (implies AUTHENTICATOR)
+await client.vault.getTfaCode("user123", "https://example.com", { field: "Backup authenticator" });
 ```
+
+### Additional Fields, 2FA Methods and Security Questions
+
+```typescript
+await client.vault.create("https://example.com", "user123", {
+  user_name: "john_doe",
+  password: "secure_password",
+  tfa_methods: ["AUTHENTICATOR", "EMAIL"],
+  additional_fields: [{ name: "Member ID", type: "Text", value: "A-1029" }],
+  security_questions: [{ question: "What was your first pet called?", answer: "Rex" }],
+});
+```
+
+Field values, questions and answers are encrypted client-side. Each list replaces
+the stored one. `tfa_method` is deprecated in favour of `tfa_methods`. Field
+types and limits: [Additional fields](https://docs.cloudcruise.com/concepts/vault#additional-fields).
 
 ### Provider-Backed Credentials
 
@@ -128,5 +150,6 @@ For the most up-to-date information about supported parameters and API specifica
 - [Get Vault Entries](https://docs.cloudcruise.com/vault-api/get-vault-entries.md) - Retrieve and filter vault entries
 - [Update Vault Entry](https://docs.cloudcruise.com/vault-api/update-vault-entry.md) - Update existing vault entries
 - [Delete Vault Entry](https://docs.cloudcruise.com/vault-api/delete-vault-entry.md) - Remove vault entries
+- [Get 2FA Code](https://docs.cloudcruise.com/vault-api/get-vault-tfa-code.md) - Read the current 2FA code of an entry
 
 **Note:** The official documentation is the authoritative source for current API capabilities and supported parameters. SDK features may vary based on the API version.

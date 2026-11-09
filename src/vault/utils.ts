@@ -56,10 +56,27 @@ export async function decryptData(encryptedHex: string, keyHex: string): Promise
   }
 }
 
+async function decryptOrKeep(value: unknown, encryptionKey: string): Promise<unknown> {
+  if (typeof value !== 'string') return value;
+  try {
+    return await decryptData(value, encryptionKey);
+  } catch {
+    return value;
+  }
+}
+
+function required(item: any, key: string, path: string): any {
+  if (item?.[key] === undefined || item?.[key] === null) {
+    throw new Error(`${path}.${key} is required`);
+  }
+  return item[key];
+}
+
 /**
  * Encrypts sensitive fields in a vault entry
- * Fields encrypted: user_name, password, tfa_secret (if present), and
- * proxy_value when proxy_setting is "custom" (the bring-your-own proxy URL).
+ * Fields encrypted: user_name, password, tfa_secret (if present), every
+ * additional field value, every security question and answer, and proxy_value when proxy_setting is "custom"
+ * (the bring-your-own proxy URL).
  * @param entry - Vault entry with potentially sensitive data
  * @param encryptionKey - Hex-encoded encryption key
  * @returns Entry with encrypted sensitive fields
@@ -77,6 +94,25 @@ export async function encryptSensitiveFields(entry: any, encryptionKey: string):
 
   if (entry.tfa_secret !== undefined) {
     encryptedEntry.tfa_secret = await encryptData(entry.tfa_secret, encryptionKey);
+  }
+
+  if (Array.isArray(entry.additional_fields)) {
+    encryptedEntry.additional_fields = await Promise.all(
+      entry.additional_fields.map(async (field: any, i: number) => ({
+        name: required(field, 'name', `additional_fields[${i}]`),
+        type: required(field, 'type', `additional_fields[${i}]`),
+        value: await encryptData(required(field, 'value', `additional_fields[${i}]`), encryptionKey)
+      }))
+    );
+  }
+
+  if (Array.isArray(entry.security_questions)) {
+    encryptedEntry.security_questions = await Promise.all(
+      entry.security_questions.map(async (item: any, i: number) => ({
+        question: await encryptData(required(item, 'question', `security_questions[${i}]`), encryptionKey),
+        answer: await encryptData(required(item, 'answer', `security_questions[${i}]`), encryptionKey)
+      }))
+    );
   }
 
   // proxy_value is meaningless to the backend without proxy_setting, which is
@@ -114,29 +150,34 @@ export async function encryptSensitiveFields(entry: any, encryptionKey: string):
  */
 export async function decryptSensitiveFields(entry: any, encryptionKey: string): Promise<any> {
   const decryptedEntry = { ...entry };
-  
-  if (typeof entry.user_name === 'string') {
-    try {
-      decryptedEntry.user_name = await decryptData(entry.user_name, encryptionKey);
-    } catch {}
-  }
-  
-  if (typeof entry.password === 'string') {
-    try {
-      decryptedEntry.password = await decryptData(entry.password, encryptionKey);
-    } catch {}
-  }
-  
-  if (typeof entry.tfa_secret === 'string') {
-    try {
-      decryptedEntry.tfa_secret = await decryptData(entry.tfa_secret, encryptionKey);
-    } catch {}
+
+  for (const key of ['user_name', 'password', 'tfa_secret']) {
+    if (key in entry) {
+      decryptedEntry[key] = await decryptOrKeep(entry[key], encryptionKey);
+    }
   }
 
-  if (entry.proxy_setting === 'custom' && typeof entry.proxy_value === 'string') {
-    try {
-      decryptedEntry.proxy_value = await decryptData(entry.proxy_value, encryptionKey);
-    } catch {}
+  if (Array.isArray(entry.additional_fields)) {
+    decryptedEntry.additional_fields = await Promise.all(
+      entry.additional_fields.map(async (field: any) => ({
+        ...field,
+        value: await decryptOrKeep(field?.value, encryptionKey)
+      }))
+    );
+  }
+
+  if (Array.isArray(entry.security_questions)) {
+    decryptedEntry.security_questions = await Promise.all(
+      entry.security_questions.map(async (item: any) => ({
+        ...item,
+        question: await decryptOrKeep(item?.question, encryptionKey),
+        answer: await decryptOrKeep(item?.answer, encryptionKey)
+      }))
+    );
+  }
+
+  if (entry.proxy_setting === 'custom' && 'proxy_value' in entry) {
+    decryptedEntry.proxy_value = await decryptOrKeep(entry.proxy_value, encryptionKey);
   }
 
   return decryptedEntry;

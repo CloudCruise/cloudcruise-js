@@ -52,7 +52,7 @@ CloudCruise is a JavaScript/TypeScript SDK for the CloudCruise Platform that pro
 
 ### Key Patterns
 
-**Client-Side Encryption**: Sensitive fields (user_name, password, tfa_secret) are automatically encrypted/decrypted using AES-256-GCM before API calls.
+**Client-Side Encryption**: Sensitive fields (user_name, password, tfa_secret, every additional field value, every security question and answer, and a custom proxy_value) are automatically encrypted/decrypted using AES-256-GCM before API calls.
 
 **Real-time Streaming**: Uses SSE with automatic reconnection for streaming workflow execution events. ConnectionManager handles multiplexing multiple sessions over a single connection.
 
