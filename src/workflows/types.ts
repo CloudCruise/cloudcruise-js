@@ -15,6 +15,12 @@ export interface Workflow {
   enable_error_code_generation: boolean;
   enable_service_unavailable_recovery: boolean;
   enable_action_timing_recovery: boolean;
+  enable_password_update_recovery?: boolean | null;
+  enable_decision_required_recovery?: boolean;
+  decision_timeout_seconds?: number | null;
+  decision_mention_slack_ids?: string[] | null;
+  allow_requeue?: boolean;
+  deny_requeue_past_dry_run_marker?: boolean;
 }
 
 
