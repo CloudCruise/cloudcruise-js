@@ -101,7 +101,7 @@ export class CloudCruise {
    * Automatically adds the cc-key header for authentication
    */
   private async makeRequest<T = any>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
     body?: any
   ): Promise<T> {

@@ -7,6 +7,7 @@ export { CloudCruise } from './CloudCruise.js';
 export type { CloudCruiseParams } from './CloudCruise.js';
 
 export { VaultClient } from './vault/VaultClient.js';
+export { VaultSiteSettingsClient } from './vault/VaultSiteSettingsClient.js';
 export { SecretProvidersClient } from './secretProviders/SecretProvidersClient.js';
 export { WorkflowsClient } from './workflows/WorkflowsClient.js';
 export { RunsClient } from './runs/RunsClient.js';
@@ -28,7 +29,15 @@ export type {
   VaultAdditionalField,
   VaultAdditionalFieldWarning,
   VaultSecurityQuestion,
-  VaultSecurityQuestionWarning
+  VaultSecurityQuestionWarning,
+  SiteSettingsValues,
+  SiteSettingKey,
+  SiteSettings,
+  UpdateSiteSettingsRequest,
+  SiteSettingsEntry,
+  ApplySiteSettingsDefaultsRequest,
+  SiteSettingsEntryOverrides,
+  ClearSiteSettingsOverridesRequest
 } from './vault/types.js';
 
 export type {

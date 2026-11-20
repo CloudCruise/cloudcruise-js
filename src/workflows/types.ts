@@ -46,7 +46,8 @@ export interface WorkflowInputSchema {
 
 export interface WorkflowVaultCredentialSchema {
   type: 'credential';
-  domain: string;
+  /** Optional. An alias without a domain uses the only vault entry of the user ID a run passes for it. */
+  domain?: string;
   example?: string;
 }
 
