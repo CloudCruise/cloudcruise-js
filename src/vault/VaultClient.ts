@@ -2,6 +2,7 @@ import type {
   GetTfaCodeOptions,
   GetVaultEntriesFilters,
   VaultEntry,
+  VaultPinnedSettings,
   VaultTfaCode
 } from './types.js';
 import { VaultSiteSettingsClient } from './VaultSiteSettingsClient.js';
@@ -40,8 +41,11 @@ function validateProviderPayload(entry: Partial<VaultEntry>): void {
   }
 }
 
-function withoutReadOnlyFields<T extends Partial<VaultEntry>>(entry: T): T {
+function withoutReadOnlyFields<T extends Partial<VaultEntry> & VaultPinnedSettings>(entry: T): T {
   const { additional_field_warnings, security_question_warnings, ...rest } = entry;
+  if (!rest.pinned_settings?.length) {
+    delete rest.pinned_settings;
+  }
   return rest as T;
 }
 
@@ -81,7 +85,8 @@ export class VaultClient {
   async create(
     domain: string | null | undefined,
     permissioned_user_id: string, 
-    options?: Partial<Omit<VaultEntry, 'id' | 'created_at' | 'domain' | 'permissioned_user_id'>>
+    options?: Partial<Omit<VaultEntry, 'id' | 'created_at' | 'domain' | 'permissioned_user_id'>> &
+      VaultPinnedSettings
   ): Promise<VaultEntry> {
     const entry = {
       ...(domain ? { domain } : {}),
@@ -202,7 +207,7 @@ export class VaultClient {
    * @param updates.permissioned_user_id - Required: User identifier for the vault entry
    * @param updates.domain - Optional: Target domain of the entry. Omit it while the user ID has a single entry.
    */
-  async update(updates: Partial<VaultEntry> & {
+  async update(updates: Partial<VaultEntry> & VaultPinnedSettings & {
     permissioned_user_id: string;
     domain?: string | null;
   }): Promise<VaultEntry> {

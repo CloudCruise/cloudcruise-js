@@ -31,6 +31,7 @@ export type {
   VaultSecurityQuestion,
   VaultSecurityQuestionWarning,
   SiteSettingsValues,
+  VaultPinnedSettings,
   SiteSettingKey,
   SiteSettings,
   UpdateSiteSettingsRequest,

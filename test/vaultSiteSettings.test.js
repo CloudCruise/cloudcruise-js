@@ -186,3 +186,50 @@ test('siteSettings.clearOverrides rejects an empty keys list before any request'
   );
   assert.equal(calls.length, 0);
 });
+
+test('VaultClient.create sends pinned_settings when non-empty', async () => {
+  const { client, calls } = recordingClient(body => ({ id: 'e1', ...body }));
+
+  await client.create('example.com', 'user123', {
+    user_name: 'u',
+    password: 'p',
+    max_concurrency: 2,
+    pinned_settings: ['max_concurrency']
+  });
+
+  assert.deepEqual(calls[0].body.pinned_settings, ['max_concurrency']);
+});
+
+test('VaultClient.create omits pinned_settings when absent or empty', async () => {
+  const { client, calls } = recordingClient(body => ({ id: 'e1', ...body }));
+
+  await client.create('example.com', 'user123', { user_name: 'u', password: 'p' });
+  await client.create('example.com', 'user123', { user_name: 'u', password: 'p', pinned_settings: [] });
+
+  assert.equal('pinned_settings' in calls[0].body, false);
+  assert.equal('pinned_settings' in calls[1].body, false);
+});
+
+test('VaultClient.update sends pinned_settings when non-empty', async () => {
+  const { client, calls } = recordingClient(body => ({ id: 'e1', ...body }));
+
+  await client.update({
+    permissioned_user_id: 'user123',
+    user_name: 'u',
+    password: 'p',
+    persist_cookies: true,
+    pinned_settings: ['persist_cookies', 'login_workflow_id']
+  });
+
+  assert.deepEqual(calls[0].body.pinned_settings, ['persist_cookies', 'login_workflow_id']);
+});
+
+test('VaultClient.update omits pinned_settings when absent or empty', async () => {
+  const { client, calls } = recordingClient(body => ({ id: 'e1', ...body }));
+
+  await client.update({ permissioned_user_id: 'user123', user_name: 'u', password: 'p' });
+  await client.update({ permissioned_user_id: 'user123', user_name: 'u', password: 'p', pinned_settings: [] });
+
+  assert.equal('pinned_settings' in calls[0].body, false);
+  assert.equal('pinned_settings' in calls[1].body, false);
+});

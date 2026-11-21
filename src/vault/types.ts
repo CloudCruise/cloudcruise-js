@@ -252,3 +252,16 @@ export interface ClearSiteSettingsOverridesRequest {
   /** Settings the entry stops overriding. It reads them from the domain settings again. Must not be empty. */
   keys: SiteSettingKey[];
 }
+
+/**
+ * Request-only field of `vault.create` and `vault.update`. Never returned in responses.
+ */
+export interface VaultPinnedSettings {
+  /**
+   * Settings to store on the entry as its own value, even when the value equals
+   * the one its domain provides, so a later change to the domain default does
+   * not reach them. A setting listed without a value is ignored. Sent only when
+   * non-empty.
+   */
+  pinned_settings?: SiteSettingKey[];
+}

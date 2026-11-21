@@ -147,6 +147,23 @@ await client.vault.siteSettings.clearOverrides({
 });
 ```
 
+To store a setting on an entry as its own value even when it equals the domain's,
+list it in `pinned_settings` on `create` or `update`. A later change to the domain
+default then does not reach that setting on the entry. A pinned setting needs a
+value in the same request; one listed without a value is ignored. `pinned_settings`
+is request-only and never returned.
+
+```typescript
+await client.vault.update({
+  permissioned_user_id: "user123",
+  domain: "example.com",
+  user_name: "john_doe",
+  password: "secure_password",
+  max_concurrency: 2, // equals the domain default
+  pinned_settings: ["max_concurrency"],
+});
+```
+
 On a domain, a `null` setting means no default is set and the platform default
 applies, and `max_concurrency` is at least 1. On an entry, `null` means the entry
 inherits the domain's value. To turn a limit off on one entry although its domain

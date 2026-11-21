@@ -7,6 +7,7 @@
 - `domain` is optional wherever a vault entry is addressed by user ID and domain: `client.vault.create(domain, ...)` takes `undefined` or `null`, `update` and `delete` accept an omitted `domain`, `get({ permissioned_user_id })` and `getTfaCode(permissionedUserId, options?)` address the user ID's only entry. An omitted domain is left out of the request; the API answers 409 and lists the domains when the user ID has several entries. Existing calls keep working.
 - `client.vault.siteSettings` manages domain settings, the defaults every vault entry on a domain inherits: `list()`, `update({ domain, ...settings })` (`null` clears a default), `listEntries(domain)`, `applyDefaults({ domain, entry_ids? })`, `getOverrides(permissionedUserId, domain?)` and `clearOverrides({ permissioned_user_id, domain?, keys })`. Types: `SiteSettings`, `SiteSettingsValues`, `SiteSettingKey`, `UpdateSiteSettingsRequest`, `SiteSettingsEntry`, `ApplySiteSettingsDefaultsRequest`, `SiteSettingsEntryOverrides` and `ClearSiteSettingsOverridesRequest`.
 - `WorkflowVaultCredentialSchema.domain` is optional.
+- `client.vault.create` and `client.vault.update` take `pinned_settings` (`SiteSettingKey[]`, typed `VaultPinnedSettings`): settings to store on the entry as its own value even when it equals its domain's, so a later change to the domain default does not reach it. A setting listed without a value is ignored by the API. The field is request-only and is sent only when non-empty.
 
 ### Changed
 
