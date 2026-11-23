@@ -75,8 +75,7 @@ export interface VaultSecurityQuestionWarning {
 
 export interface VaultEntry {
   id: string;
-  /** `null` for an entry without a domain. */
-  domain: string | null;
+  domain: string;
   permissioned_user_id: string;
   workspace_id?: string;
   user_id?: string;
@@ -131,7 +130,6 @@ export interface VaultEntry {
 
 export interface GetVaultEntriesFilters {
   permissioned_user_id?: string;
-  /** Only valid together with `permissioned_user_id`. Omit it while the user ID has a single entry. */
   domain?: string;
   decryptCredentials?: boolean;
 }
@@ -239,7 +237,7 @@ export interface ApplySiteSettingsDefaultsRequest {
 /** The settings a vault entry stores itself. */
 export interface SiteSettingsEntryOverrides {
   id: string;
-  domain: string | null;
+  domain: string;
   /** Settings this entry sets itself. Every other setting is read from the domain settings. */
   overridden: string[];
 }
@@ -247,8 +245,8 @@ export interface SiteSettingsEntryOverrides {
 export interface ClearSiteSettingsOverridesRequest {
   /** User ID of the vault entry. */
   permissioned_user_id: string;
-  /** Domain of the entry. Optional while the user ID has a single entry. */
-  domain?: string;
+  /** Domain of the entry. */
+  domain: string;
   /** Settings the entry stops overriding. It reads them from the domain settings again. Must not be empty. */
   keys: SiteSettingKey[];
 }

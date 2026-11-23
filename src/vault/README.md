@@ -26,7 +26,7 @@ const entry = await client.vault.create("https://example.com", "user123", {
 // Get all vault entries (automatically decrypted)
 const allEntries = await client.vault.get();
 
-// Get one vault entry by user ID and domain
+// Get filtered vault entries (both parameters required together)
 const filteredEntries = await client.vault.get({
   permissioned_user_id: "user123",
   domain: "https://example.com",
@@ -40,17 +40,12 @@ const encryptedEntries = await client.vault.get({
   decryptCredentials: false, // Keep sensitive fields encrypted
 });
 
-// Get the only entry of a user ID without naming its domain.
-// `domain` is only valid together with `permissioned_user_id`. The API answers
-// 409 and lists the domains when the user ID has several entries.
-const onlyEntry = await client.vault.get({ permissioned_user_id: "user123" });
-
 // Update a vault entry
 const updatedEntry = await client.vault.update({
   permissioned_user_id: entry.permissioned_user_id,
   user_name: entry.user_name, // Required field
   password: "new_secure_password", // Required field - automatically encrypted
-  domain: entry.domain ?? undefined, // Optional while the user ID has a single entry
+  domain: entry.domain, // Required field
   user_alias: "Updated Account Name", // Human-readable identifier
   allow_multiple_sessions: true, // Allow concurrent workflow usage
 });
@@ -60,9 +55,6 @@ await client.vault.delete({
   permissioned_user_id: "user123", 
   domain: "https://example.com" 
 });
-
-// Delete the only entry of a user ID without naming its domain
-await client.vault.delete({ permissioned_user_id: "user456" });
 
 // Get the current 2FA code for an entry with one 2FA method
 const tfa = await client.vault.getTfaCode("user123", "https://example.com");
@@ -76,34 +68,6 @@ await client.vault.getTfaCode("user123", "https://example.com", { method: "EMAIL
 // Code of a Totp additional field instead of the built-in seed (implies AUTHENTICATOR)
 await client.vault.getTfaCode("user123", "https://example.com", { field: "Backup authenticator" });
 ```
-
-### Entries Without a Domain
-
-`domain` is optional wherever an entry is addressed by user ID and domain. With
-the user ID alone, the API uses that user ID's only entry and answers 409 (with
-the list of domains) when the user ID has several. Responses carry
-`domain: null` for an entry without a domain.
-
-```typescript
-// Create an entry without a domain: pass undefined or null as the domain
-const entry = await client.vault.create(undefined, "user123", {
-  user_name: "john_doe",
-  password: "secure_password",
-});
-entry.domain; // null
-
-// The user ID alone addresses the entry
-await client.vault.update({
-  permissioned_user_id: "user123",
-  user_name: "john_doe",
-  password: "new_secure_password",
-});
-await client.vault.getTfaCode("user123");
-await client.vault.getTfaCode("user123", { method: "EMAIL" });
-```
-
-A workflow's `vault_schema` entry can omit `domain` too:
-`{ "type": "credential" }`.
 
 ### Domain Settings
 
@@ -142,7 +106,7 @@ const overrides = await client.vault.siteSettings.getOverrides("user123", "examp
 // Reset some of an entry's own settings to the domain's
 await client.vault.siteSettings.clearOverrides({
   permissioned_user_id: "user123",
-  domain: "example.com", // optional while the user ID has a single entry
+  domain: "example.com",
   keys: ["max_concurrency"],
 });
 ```

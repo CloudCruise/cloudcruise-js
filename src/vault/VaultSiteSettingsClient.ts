@@ -81,19 +81,19 @@ export class VaultSiteSettingsClient {
    * Gets the settings an entry sets itself. Every other setting is read from
    * the domain settings.
    * @param permissioned_user_id - User identifier for the vault entry
-   * @param domain - Domain of the entry. Optional while the user ID has a single entry.
+   * @param domain - Domain of the entry
    */
   async getOverrides(
     permissioned_user_id: string,
-    domain?: string | null
+    domain: string
   ): Promise<SiteSettingsEntryOverrides> {
     if (!permissioned_user_id) {
       throw new Error('permissioned_user_id is required to get site settings overrides');
     }
-    const params = new URLSearchParams({ permissioned_user_id });
-    if (domain) {
-      params.append('domain', domain);
+    if (!domain) {
+      throw new Error('domain is required to get site settings overrides');
     }
+    const params = new URLSearchParams({ permissioned_user_id, domain });
     return await this.makeRequest<SiteSettingsEntryOverrides>(
       'GET',
       `/vault/site-settings/overrides?${params.toString()}`
@@ -111,14 +111,16 @@ export class VaultSiteSettingsClient {
     if (!request || !request.permissioned_user_id) {
       throw new Error('permissioned_user_id is required to clear site settings overrides');
     }
+    if (!request.domain) {
+      throw new Error('domain is required to clear site settings overrides');
+    }
     if (!request.keys || request.keys.length === 0) {
       throw new Error('keys must list at least one setting to clear');
     }
-    const { domain, ...rest } = request;
     return await this.makeRequest<SiteSettingsEntryOverrides>(
       'PATCH',
       '/vault/site-settings/overrides',
-      { ...rest, ...(domain ? { domain } : {}) }
+      request
     );
   }
 }

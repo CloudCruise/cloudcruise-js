@@ -455,11 +455,10 @@ test('VaultClient.update throws if required fields are missing', async () => {
   await assert.rejects(
     () =>
       client.update({
-        user_name: 'user@example.com',
-        password: 'secret',
-        domain: 'example.com'
+        permissioned_user_id: 'user123',
+        user_name: 'user@example.com'
       }),
-    /permissioned_user_id is required for vault updates/
+    /domain is required for vault updates/
   );
 
   await assert.rejects(

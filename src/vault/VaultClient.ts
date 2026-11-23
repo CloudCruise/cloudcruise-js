@@ -79,17 +79,17 @@ export class VaultClient {
 
   /**
    * Creates a new vault entry
-   * @param domain - Target domain of the entry. Pass `undefined` or `null` to create an entry without a domain.
+   * @param domain - Target domain of the entry
    * @param permissioned_user_id - User identifier for the vault entry
    */
   async create(
-    domain: string | null | undefined,
+    domain: string, 
     permissioned_user_id: string, 
     options?: Partial<Omit<VaultEntry, 'id' | 'created_at' | 'domain' | 'permissioned_user_id'>> &
       VaultPinnedSettings
   ): Promise<VaultEntry> {
     const entry = {
-      ...(domain ? { domain } : {}),
+      domain,
       permissioned_user_id,
       ...options
     };
@@ -110,8 +110,7 @@ export class VaultClient {
    * Gets vault entries, optionally filtered
    * @param filters - Optional filters for the request
    * @param filters.permissioned_user_id - Filter by user ID
-   * @param filters.domain - Filter by domain. Only valid together with `permissioned_user_id`.
-   *   With the user ID alone the API returns that user ID's only entry and answers 409 when it has several.
+   * @param filters.domain - Filter by domain
    * @param filters.decryptCredentials - Whether to decrypt sensitive fields (default: true)
    */
   async get(filters?: GetVaultEntriesFilters): Promise<VaultEntry[]> {
@@ -152,43 +151,27 @@ export class VaultClient {
    * SMS and magic-link codes are not supported (the endpoint returns 409).
    *
    * @param permissioned_user_id - User identifier for the vault entry
-   * @param domain - Target domain of the vault entry. Omit it while the user ID has a single entry; with several the API answers 409 and lists the domains.
+   * @param domain - Target domain of the vault entry
    * @param options.method - 2FA method to read. Required when the entry has several `tfa_methods`.
    * @param options.field - Name of a `Totp` additional field whose code to return instead of the built-in seed's.
    */
   async getTfaCode(
     permissioned_user_id: string,
+    domain: string,
     options?: GetTfaCodeOptions
-  ): Promise<VaultTfaCode>;
-  async getTfaCode(
-    permissioned_user_id: string,
-    domain: string | null | undefined,
-    options?: GetTfaCodeOptions
-  ): Promise<VaultTfaCode>;
-  async getTfaCode(
-    permissioned_user_id: string,
-    domainOrOptions?: string | null | GetTfaCodeOptions,
-    maybeOptions?: GetTfaCodeOptions
   ): Promise<VaultTfaCode> {
-    const domain =
-      typeof domainOrOptions === 'object' && domainOrOptions !== null
-        ? undefined
-        : domainOrOptions;
-    const options =
-      typeof domainOrOptions === 'object' && domainOrOptions !== null
-        ? domainOrOptions
-        : maybeOptions;
     if (!permissioned_user_id) {
       throw new Error('permissioned_user_id is required to get a TFA code');
+    }
+    if (!domain) {
+      throw new Error('domain is required to get a TFA code');
     }
     if (options?.field !== undefined && options.method !== undefined && options.method !== 'AUTHENTICATOR') {
       throw new Error('field requires method AUTHENTICATOR or no method');
     }
     const params = new URLSearchParams();
     params.append('permissioned_user_id', permissioned_user_id);
-    if (domain) {
-      params.append('domain', domain);
-    }
+    params.append('domain', domain);
     if (options?.method !== undefined) {
       params.append('method', options.method);
     }
@@ -205,15 +188,18 @@ export class VaultClient {
    * Updates an existing vault entry
    * @param updates - Vault entry updates including required fields
    * @param updates.permissioned_user_id - Required: User identifier for the vault entry
-   * @param updates.domain - Optional: Target domain of the entry. Omit it while the user ID has a single entry.
+   * @param updates.domain - Required: Target domain for the credentials
    */
   async update(updates: Partial<VaultEntry> & VaultPinnedSettings & {
     permissioned_user_id: string;
-    domain?: string | null;
+    domain: string;
   }): Promise<VaultEntry> {
     // Validate required fields
     if (!updates.permissioned_user_id) {
       throw new Error('permissioned_user_id is required for vault updates');
+    }
+    if (!updates.domain) {
+      throw new Error('domain is required for vault updates');
     }
     validateProviderPayload(updates);
     if (!isProviderBackedPayload(updates)) {
@@ -226,9 +212,6 @@ export class VaultClient {
     }
     
     let processedEntry = withoutReadOnlyFields(updates);
-    if (!processedEntry.domain) {
-      delete processedEntry.domain;
-    }
     
     // Encrypt sensitive fields
     processedEntry = await encryptSensitiveFields(processedEntry, this.encryptionKey);
@@ -240,16 +223,12 @@ export class VaultClient {
   }
 
   /**
-   * Deletes a vault entry by permissioned user ID and, optionally, domain
-   * @param params - Object containing permissioned_user_id and optionally domain
-   * @param params.domain - The domain of the vault entry to delete. Omit it while the user ID has a single entry.
+   * Deletes a vault entry by domain and permissioned user ID
+   * @param params - Object containing domain and permissioned_user_id
+   * @param params.domain - The domain of the vault entry to delete
    * @param params.permissioned_user_id - The permissioned user ID of the vault entry to delete
    */
-  async delete(params: { domain?: string | null; permissioned_user_id: string }): Promise<void> {
-    const { domain, permissioned_user_id } = params;
-    await this.makeRequest('DELETE', '/vault', {
-      permissioned_user_id,
-      ...(domain ? { domain } : {})
-    });
+  async delete(params: { domain: string; permissioned_user_id: string }): Promise<void> {
+    await this.makeRequest('DELETE', '/vault', params);
   }
 }
