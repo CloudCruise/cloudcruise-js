@@ -153,6 +153,7 @@ test('VaultClient.update sends pinned_settings when non-empty', async () => {
 
   await client.update({
     permissioned_user_id: 'user123',
+    domain: 'example.com',
     user_name: 'u',
     password: 'p',
     persist_cookies: true,
