@@ -2,8 +2,10 @@ import type {
   GetTfaCodeOptions,
   GetVaultEntriesFilters,
   VaultEntry,
+  VaultPinnedSettings,
   VaultTfaCode
 } from './types.js';
+import { VaultSiteSettingsClient } from './VaultSiteSettingsClient.js';
 import { encryptSensitiveFields, decryptSensitiveFields } from './utils.js';
 
 function validateProviderPayload(entry: Partial<VaultEntry>): void {
@@ -39,8 +41,11 @@ function validateProviderPayload(entry: Partial<VaultEntry>): void {
   }
 }
 
-function withoutReadOnlyFields<T extends Partial<VaultEntry>>(entry: T): T {
+function withoutReadOnlyFields<T extends Partial<VaultEntry> & VaultPinnedSettings>(entry: T): T {
   const { additional_field_warnings, security_question_warnings, ...rest } = entry;
+  if (!rest.pinned_settings?.length) {
+    delete rest.pinned_settings;
+  }
   return rest as T;
 }
 
@@ -50,15 +55,18 @@ function isProviderBackedPayload(entry: Partial<VaultEntry>): boolean {
 
 export class VaultClient {
   private readonly makeRequest: <T = any>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
     body?: any
   ) => Promise<T>;
   private readonly encryptionKey: string;
 
+  /** Domain-level defaults that every vault entry on a domain inherits. */
+  readonly siteSettings: VaultSiteSettingsClient;
+
   constructor(
     makeRequest: <T = any>(
-      method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+      method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
       path: string,
       body?: any
     ) => Promise<T>,
@@ -66,15 +74,19 @@ export class VaultClient {
   ) {
     this.makeRequest = makeRequest;
     this.encryptionKey = encryptionKey;
+    this.siteSettings = new VaultSiteSettingsClient(makeRequest);
   }
 
   /**
    * Creates a new vault entry
+   * @param domain - Target domain of the entry
+   * @param permissioned_user_id - User identifier for the vault entry
    */
   async create(
     domain: string, 
     permissioned_user_id: string, 
-    options?: Partial<Omit<VaultEntry, 'id' | 'created_at' | 'domain' | 'permissioned_user_id'>>
+    options?: Partial<Omit<VaultEntry, 'id' | 'created_at' | 'domain' | 'permissioned_user_id'>> &
+      VaultPinnedSettings
   ): Promise<VaultEntry> {
     const entry = {
       domain,
@@ -178,7 +190,7 @@ export class VaultClient {
    * @param updates.permissioned_user_id - Required: User identifier for the vault entry
    * @param updates.domain - Required: Target domain for the credentials
    */
-  async update(updates: Partial<VaultEntry> & {
+  async update(updates: Partial<VaultEntry> & VaultPinnedSettings & {
     permissioned_user_id: string;
     domain: string;
   }): Promise<VaultEntry> {

@@ -69,6 +69,71 @@ await client.vault.getTfaCode("user123", "https://example.com", { method: "EMAIL
 await client.vault.getTfaCode("user123", "https://example.com", { field: "Backup authenticator" });
 ```
 
+### Domain Settings
+
+Session persistence, concurrency, expiry and the login workflow can be set once
+per domain with `client.vault.siteSettings`. Every vault entry on the domain
+inherits them unless it sets its own value.
+
+```typescript
+// List the workspace's domains with their defaults, entry counts and
+// how many entries override each setting
+const sites = await client.vault.siteSettings.list();
+
+// Set defaults for a domain. Only the given settings change; null clears one.
+const site = await client.vault.siteSettings.update({
+  domain: "example.com",
+  max_concurrency: 2,
+  persist_cookies: true,
+  expiry_time_from_last_use: null,
+});
+
+// List the entries on a domain with the settings each one sets itself
+const entries = await client.vault.siteSettings.listEntries("example.com");
+// [{ id, permissioned_user_id, overridden: ["max_concurrency"] }]
+
+// Remove the own settings of some entries (or, without entry_ids, of every
+// entry on the domain) so they read the domain defaults again
+await client.vault.siteSettings.applyDefaults({
+  domain: "example.com",
+  entry_ids: [entries[0].id],
+});
+
+// Get the settings one entry overrides
+const overrides = await client.vault.siteSettings.getOverrides("user123", "example.com");
+// { id, domain: "example.com", overridden: ["max_concurrency"] }
+
+// Reset some of an entry's own settings to the domain's
+await client.vault.siteSettings.clearOverrides({
+  permissioned_user_id: "user123",
+  domain: "example.com",
+  keys: ["max_concurrency"],
+});
+```
+
+To store a setting on an entry as its own value even when it equals the domain's,
+list it in `pinned_settings` on `create` or `update`. A later change to the domain
+default then does not reach that setting on the entry. A pinned setting needs a
+value in the same request; one listed without a value is ignored. `pinned_settings`
+is request-only and never returned.
+
+```typescript
+await client.vault.update({
+  permissioned_user_id: "user123",
+  domain: "example.com",
+  user_name: "john_doe",
+  password: "secure_password",
+  max_concurrency: 2, // equals the domain default
+  pinned_settings: ["max_concurrency"],
+});
+```
+
+On a domain, a `null` setting means no default is set and the platform default
+applies, and `max_concurrency` is at least 1. On an entry, `null` means the entry
+inherits the domain's value. To turn a limit off on one entry although its domain
+sets it, set `max_concurrency: -1` or a zero interval (`"0 seconds"`) for
+`expiry_time_from_last_use` or `expiry_time_from_session_data_set`.
+
 ### Additional Fields, 2FA Methods and Security Questions
 
 ```typescript
@@ -150,6 +215,7 @@ For the most up-to-date information about supported parameters and API specifica
 - [Get Vault Entries](https://docs.cloudcruise.com/vault-api/get-vault-entries.md) - Retrieve and filter vault entries
 - [Update Vault Entry](https://docs.cloudcruise.com/vault-api/update-vault-entry.md) - Update existing vault entries
 - [Delete Vault Entry](https://docs.cloudcruise.com/vault-api/delete-vault-entry.md) - Remove vault entries
+- [Domain Settings](https://docs.cloudcruise.com/concepts/vault#domain-settings) - How entries inherit settings from their domain
 - [Get 2FA Code](https://docs.cloudcruise.com/vault-api/get-vault-tfa-code.md) - Read the current 2FA code of an entry
 
 **Note:** The official documentation is the authoritative source for current API capabilities and supported parameters. SDK features may vary based on the API version.

@@ -167,3 +167,99 @@ export interface GetTfaCodeOptions {
   /** Name of a `Totp` additional field. Requires `method` to be `'AUTHENTICATOR'` or unset. */
   field?: string;
 }
+
+/**
+ * Domain-level defaults that every vault entry on the domain inherits. On the
+ * domain, `null` means no default is set and the platform default applies.
+ *
+ * On an entry, `null` means the entry inherits the domain's value. An entry
+ * turns a limit off although its domain sets one with `max_concurrency: -1`
+ * or with `"0 seconds"` for `expiry_time_from_last_use` and
+ * `expiry_time_from_session_data_set`.
+ */
+export interface SiteSettingsValues {
+  allow_multiple_sessions?: boolean | null;
+  /** At most 128 characters. */
+  cookie_domain_to_store?: string | null;
+  expiry_time_from_last_use?: string | null;
+  expiry_time_from_session_data_set?: string | null;
+  /** UUID of the workflow that logs the entry in. */
+  login_workflow_id?: string | null;
+  /** At least 1 on a domain. */
+  max_concurrency?: number | null;
+  persist_cookies?: boolean | null;
+  persist_local_storage?: boolean | null;
+  persist_session_storage?: boolean | null;
+  prevent_concurrency_during_login?: boolean | null;
+  skip_csrf_cookies?: boolean | null;
+}
+
+/** Name of a setting a vault entry can set itself instead of inheriting it from its domain. */
+export type SiteSettingKey = keyof SiteSettingsValues;
+
+/** The domain defaults of one domain, with how many entries use and override them. */
+export interface SiteSettings {
+  id: string;
+  domain: string;
+  /** The domain defaults. A null value means the domain sets nothing and the platform default applies. */
+  settings: SiteSettingsValues;
+  /** Entries in the workspace on this domain. */
+  entry_count: number;
+  /** For each setting, how many entries on the domain set their own value instead of inheriting the default. */
+  overrides: Record<string, number>;
+}
+
+/**
+ * Body of `client.vault.siteSettings.update`. Only the settings present change;
+ * `null` clears a default. Entries that set their own value keep it.
+ */
+export interface UpdateSiteSettingsRequest extends SiteSettingsValues {
+  /** Domain the settings apply to. Normalised like entry domains (lowercase, no scheme, path or www). */
+  domain: string;
+}
+
+/** A vault entry on a domain, with the settings it sets itself. */
+export interface SiteSettingsEntry {
+  id: string;
+  /** User ID of the vault entry. */
+  permissioned_user_id: string;
+  /** Settings this entry sets itself. Every other setting is read from the domain defaults. */
+  overridden: string[];
+}
+
+export interface ApplySiteSettingsDefaultsRequest {
+  /** Domain whose defaults the entries use. Normalised like entry domains. */
+  domain: string;
+  /** Entries to reset. Omit it to reset every entry on the domain. Must not be empty. */
+  entry_ids?: string[];
+}
+
+/** The settings a vault entry stores itself. */
+export interface SiteSettingsEntryOverrides {
+  id: string;
+  domain: string;
+  /** Settings this entry sets itself. Every other setting is read from the domain settings. */
+  overridden: string[];
+}
+
+export interface ClearSiteSettingsOverridesRequest {
+  /** User ID of the vault entry. */
+  permissioned_user_id: string;
+  /** Domain of the entry. */
+  domain: string;
+  /** Settings the entry stops overriding. It reads them from the domain settings again. Must not be empty. */
+  keys: SiteSettingKey[];
+}
+
+/**
+ * Request-only field of `vault.create` and `vault.update`. Never returned in responses.
+ */
+export interface VaultPinnedSettings {
+  /**
+   * Settings to store on the entry as its own value, even when the value equals
+   * the one its domain provides, so a later change to the domain default does
+   * not reach them. A setting listed without a value is ignored. Sent only when
+   * non-empty.
+   */
+  pinned_settings?: SiteSettingKey[];
+}
