@@ -11,9 +11,9 @@ function verifyHmac(
   hmac.update(receivedData);
   const calculatedSignature = hmac.digest("hex");
 
-  const formattedReceivedSignature = receivedSignature.split("=")[1];
+  const formattedReceivedSignature = receivedSignature.split("=")[1] ?? "";
 
-  if (formattedReceivedSignature.length !== calculatedSignature.length) {
+  if (!/^[0-9a-f]*$/i.test(formattedReceivedSignature) || formattedReceivedSignature.length !== calculatedSignature.length) {
     return false;
   }
 
