@@ -42,6 +42,34 @@ test('the vault refuses to write without an encryptionKey, naming the key, befor
   }
 });
 
+test('vault.update and a decrypting vault.get refuse without an encryptionKey before any request is sent', async () => {
+  clearCloudCruiseEnv();
+  const { calls, restore } = recordFetch(() => ({}));
+  try {
+    const client = new CloudCruise({ apiKey: API_KEY });
+    await assert.rejects(
+      () => client.vault.update({ domain: 'https://example.com', permissioned_user_id: 'user-1', user_name: 'a', password: 'b' }),
+      /Missing encryptionKey/
+    );
+    await assert.rejects(() => client.vault.get({ domain: 'https://example.com' }), /Missing encryptionKey/);
+    assert.equal(calls.length, 0);
+  } finally {
+    restore();
+  }
+});
+
+test('vault.get with decryptCredentials false works without an encryptionKey and returns the stored values unchanged', async () => {
+  clearCloudCruiseEnv();
+  const stored = [{ domain: 'https://example.com', permissioned_user_id: 'user-1', password: 'ciphertext' }];
+  const { restore } = recordFetch(() => stored);
+  try {
+    const client = new CloudCruise({ apiKey: API_KEY });
+    assert.deepEqual(await client.vault.get({ decryptCredentials: false }), stored);
+  } finally {
+    restore();
+  }
+});
+
 test('runs.create sends only POST /run, opens no event stream and returns the session id', async () => {
   clearCloudCruiseEnv();
   const { calls, restore } = recordFetch(() => ({ session_id: 'session-1' }));

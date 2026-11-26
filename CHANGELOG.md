@@ -9,7 +9,7 @@
 
 ### Changed
 
-- `encryptionKey` is optional. Only `client.vault` uses it, and vault calls that encrypt or decrypt throw `Missing encryptionKey` when it is absent. Runs, workflows, secret providers and webhooks work without it.
+- `encryptionKey` is optional. Only `client.vault` uses it, and vault calls that encrypt or decrypt throw `Missing encryptionKey` before sending any request when it is absent. Runs, workflows, secret providers and webhooks work without it.
 
 ### Fixed
 

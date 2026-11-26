@@ -122,14 +122,16 @@ export class VaultClient {
       path += `?${params.toString()}`;
     }
 
+    const shouldDecrypt = filters?.decryptCredentials !== false;
+    const encryptionKey = shouldDecrypt ? this.key() : undefined;
+
     const response = await this.makeRequest<VaultEntry[]>('GET', path);
     let entries = Array.isArray(response) ? response : [response];
     
     // Conditionally decrypt sensitive fields based on decryptCredentials flag
-    const shouldDecrypt = filters?.decryptCredentials !== false;
-    if (shouldDecrypt) {
+    if (encryptionKey) {
       entries = await Promise.all(
-        entries.map(entry => decryptSensitiveFields(entry, this.key()))
+        entries.map(entry => decryptSensitiveFields(entry, encryptionKey))
       );
     }
     
