@@ -40,6 +40,11 @@ left connected when a request handler or a Lambda returns. Receive the result by
 `getResults()`. The client needs no `encryptionKey` unless it uses the vault.
 
 ```typescript
+import { CloudCruise, EventType } from "cloudcruise";
+
+const webhookSecret = process.env.CLOUDCRUISE_WEBHOOK_SECRET;
+if (!webhookSecret) throw new Error("Set CLOUDCRUISE_WEBHOOK_SECRET");
+
 const client = new CloudCruise({ apiKey: process.env.CLOUDCRUISE_API_KEY });
 
 const { session_id } = await client.runs.create({
@@ -47,13 +52,14 @@ const { session_id } = await client.runs.create({
   run_input_variables: { USER: "permissioned-user-id" },
   webhook: {
     url: "https://example.com/cloudcruise-webhook",
-    event_types_subscribed: ["execution.success", "execution.failed", "execution.stopped"],
-    secret: process.env.CLOUDCRUISE_WEBHOOK_SECRET,
+    event_types_subscribed: [EventType.ExecutionSuccess, EventType.ExecutionFailed, EventType.ExecutionStopped],
+    secret: webhookSecret,
+    validity: 3600,
   },
 });
 
 // In the webhook handler, verify the raw request body:
-const event = client.webhook.verifySignature(rawBody, request.headers["x-hmac-signature"], process.env.CLOUDCRUISE_WEBHOOK_SECRET);
+const event = client.webhook.verifySignature(rawBody, request.headers["x-hmac-signature"], webhookSecret);
 
 // Or read the run directly:
 const result = await client.runs.getResults(session_id);

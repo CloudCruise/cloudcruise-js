@@ -70,12 +70,13 @@ test('vault.get with decryptCredentials false works without an encryptionKey and
   }
 });
 
-test('runs.create sends only POST /run, opens no event stream and returns the session id', async () => {
+test('runs.create sends only POST /run, drops a caller-supplied client_id, opens no event stream and returns the session id', async () => {
   clearCloudCruiseEnv();
   const { calls, restore } = recordFetch(() => ({ session_id: 'session-1' }));
   try {
     const client = new CloudCruise({ apiKey: API_KEY });
     const result = await client.runs.create({
+      client_id: 'caller-provided-client',
       workflow_id: 'wf-1',
       run_input_variables: { USER: 'user-1' },
       webhook: { url: 'https://example.com/hook', event_types_subscribed: ['execution.success'], secret: 's' },
