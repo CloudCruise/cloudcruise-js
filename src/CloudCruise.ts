@@ -20,6 +20,10 @@ export interface CloudCruiseParams {
    * production CloudCruise API origin or the staging API origin.
    */
   baseUrl?: string;
+  /**
+   * Key for client-side encryption of vault credentials. Only `client.vault`
+   * needs it; runs, workflows and webhooks work without it.
+   */
   encryptionKey?: string;
 }
 
@@ -59,7 +63,7 @@ function assertBaseUrlAllowed(baseUrl: string): void {
 export class CloudCruise {
   private readonly apiKey: string;
   private readonly baseUrl: string;
-  private readonly encryptionKey: string;
+  private readonly encryptionKey: string | undefined;
   
   public readonly vault: VaultClient;
   public readonly secretProviders: SecretProvidersClient;
@@ -75,9 +79,6 @@ export class CloudCruise {
 
     if (!apiKey) {
       throw new Error('Missing apiKey. Provide via params.apiKey or CLOUDCRUISE_API_KEY env var.');
-    }
-    if (!encryptionKey) {
-      throw new Error('Missing encryptionKey. Provide via params.encryptionKey or CLOUDCRUISE_ENCRYPTION_KEY env var.');
     }
 
     const normalizedBaseUrl = normalizeBaseUrl(baseUrl);

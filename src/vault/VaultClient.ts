@@ -54,7 +54,7 @@ export class VaultClient {
     path: string,
     body?: any
   ) => Promise<T>;
-  private readonly encryptionKey: string;
+  private readonly encryptionKey: string | undefined;
 
   constructor(
     makeRequest: <T = any>(
@@ -62,10 +62,17 @@ export class VaultClient {
       path: string,
       body?: any
     ) => Promise<T>,
-    encryptionKey: string
+    encryptionKey: string | undefined
   ) {
     this.makeRequest = makeRequest;
     this.encryptionKey = encryptionKey;
+  }
+
+  private key(): string {
+    if (!this.encryptionKey) {
+      throw new Error('Missing encryptionKey. The vault encrypts credentials client-side; provide params.encryptionKey or the CLOUDCRUISE_ENCRYPTION_KEY env var.');
+    }
+    return this.encryptionKey;
   }
 
   /**
@@ -86,12 +93,12 @@ export class VaultClient {
     let processedEntry = withoutReadOnlyFields(entry);
     
     // Encrypt sensitive fields
-    processedEntry = await encryptSensitiveFields(processedEntry, this.encryptionKey);
+    processedEntry = await encryptSensitiveFields(processedEntry, this.key());
 
     const response = await this.makeRequest<VaultEntry>('POST', '/vault', processedEntry);
     
     // Decrypt response using encryption key
-    return await decryptSensitiveFields(response, this.encryptionKey);
+    return await decryptSensitiveFields(response, this.key());
   }
 
   /**
@@ -115,14 +122,16 @@ export class VaultClient {
       path += `?${params.toString()}`;
     }
 
+    const shouldDecrypt = filters?.decryptCredentials !== false;
+    const encryptionKey = shouldDecrypt ? this.key() : undefined;
+
     const response = await this.makeRequest<VaultEntry[]>('GET', path);
     let entries = Array.isArray(response) ? response : [response];
     
     // Conditionally decrypt sensitive fields based on decryptCredentials flag
-    const shouldDecrypt = filters?.decryptCredentials !== false;
-    if (shouldDecrypt) {
+    if (encryptionKey) {
       entries = await Promise.all(
-        entries.map(entry => decryptSensitiveFields(entry, this.encryptionKey))
+        entries.map(entry => decryptSensitiveFields(entry, encryptionKey))
       );
     }
     
@@ -202,12 +211,12 @@ export class VaultClient {
     let processedEntry = withoutReadOnlyFields(updates);
     
     // Encrypt sensitive fields
-    processedEntry = await encryptSensitiveFields(processedEntry, this.encryptionKey);
+    processedEntry = await encryptSensitiveFields(processedEntry, this.key());
 
     const response = await this.makeRequest<VaultEntry>('PUT', '/vault', processedEntry);
     
     // Decrypt response using encryption key
-    return await decryptSensitiveFields(response, this.encryptionKey);
+    return await decryptSensitiveFields(response, this.key());
   }
 
   /**

@@ -33,6 +33,38 @@ console.log("Run completed:", result.status);
 console.log("Output data:", result.data);
 ```
 
+### Servers and Serverless Functions
+
+`runs.create()` queues a run and returns its session id without opening an event stream, so nothing is
+left connected when a request handler or a Lambda returns. Receive the result by webhook, or read it with
+`getResults()`. The client needs no `encryptionKey` unless it uses the vault.
+
+```typescript
+import { CloudCruise, EventType } from "cloudcruise";
+
+const webhookSecret = process.env.CLOUDCRUISE_WEBHOOK_SECRET;
+if (!webhookSecret) throw new Error("Set CLOUDCRUISE_WEBHOOK_SECRET");
+
+const client = new CloudCruise({ apiKey: process.env.CLOUDCRUISE_API_KEY });
+
+const { session_id } = await client.runs.create({
+  workflow_id: "workflow-123",
+  run_input_variables: { USER: "permissioned-user-id" },
+  webhook: {
+    url: "https://example.com/cloudcruise-webhook",
+    event_types_subscribed: [EventType.ExecutionSuccess, EventType.ExecutionFailed, EventType.ExecutionStopped],
+    secret: webhookSecret,
+    validity: 3600,
+  },
+});
+
+// In the webhook handler, verify the raw request body:
+const event = client.webhook.verifySignature(rawBody, request.headers["x-hmac-signature"], webhookSecret);
+
+// Or read the run directly:
+const result = await client.runs.getResults(session_id);
+```
+
 ### Running a Specific Version or Branch
 
 Without a pin, the head of the workflow's default branch runs. Pin a version (exact or a semver range) or a branch, but not both:

@@ -1,5 +1,6 @@
 import type {
   StartRunRequest,
+  StartRunResponse,
   UserInteractionData,
   GetRunResult,
   WebhookReplayResponse,
@@ -72,6 +73,17 @@ export class RunsClient {
     this.makeRequest = makeRequest;
     this.workflows = workflows;
     this.connectionManager = connectionManager;
+  }
+
+  /**
+   * Queues a new run and returns its session id, without opening an event stream.
+   * Use it from servers and serverless functions that receive results by webhook
+   * (`request.webhook`) or read them with `getResults()`. The API validates
+   * `run_input_variables` and rejects invalid input with `InputValidationError`.
+   */
+  async create(request: StartRunRequest): Promise<StartRunResponse> {
+    const { client_id: _clientId, ...body } = request;
+    return this.makeRequest<StartRunResponse>('POST', '/run', body);
   }
 
   /**

@@ -4,7 +4,16 @@
 
 ### Added
 
+- `client.runs.create(request)` queues a run and returns `{ session_id }` without opening an event stream, for servers and serverless functions that receive results by webhook or read them with `client.runs.getResults()`. It sends `POST /run` only; the API validates `run_input_variables`.
 - `Workflow` (returned by `client.workflows.getAllWorkflows()`) includes the settings the API already returns: `enable_password_update_recovery`, `enable_decision_required_recovery`, `decision_timeout_seconds`, `decision_mention_slack_ids`, `allow_requeue` and `deny_requeue_past_dry_run_marker`. All are optional, so existing code that builds a `Workflow` still compiles.
+
+### Changed
+
+- `encryptionKey` is optional. Only `client.vault` uses it, and vault calls that encrypt or decrypt throw `Missing encryptionKey` before sending any request when it is absent. Runs, workflows, secret providers and webhooks work without it.
+
+### Fixed
+
+- `client.webhook.verifySignature()` throws a 401 `VerificationError` for a signature header without `=` or with non-hex characters. It threw a `TypeError` or `RangeError` before.
 
 ## 1.5.0
 
